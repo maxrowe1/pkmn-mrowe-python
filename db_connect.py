@@ -23,6 +23,11 @@ class Type(Enum):
     STEEL = 'STEEL'
     FAIRY = 'FAIRY'
 
+class Category(Enum):
+    PHYSICAL = "PHYSICAL"
+    SPECIAL = "SPECIAL"
+    STATUS = "STATUS"
+
 class Pokemon:
     def __init__(self, pokemon_id, name, type1, type2):
         self.id = pokemon_id
@@ -33,7 +38,7 @@ class Pokemon:
 class Move:
     def __init__(
             self,
-            id,
+            move_id,
             name,
             move_type,
             category,
@@ -42,8 +47,10 @@ class Move:
             base_pp,
             stat,
             target_self,
-            stage_effect):
-        self.id = id
+            stage_effect,
+            can_crit = True
+    ):
+        self.id = move_id
         self.name = name
         self.type = move_type
         self.category = category
@@ -53,6 +60,7 @@ class Move:
         self.stat = stat
         self.target_self = target_self
         self.stage_effect = stage_effect
+        self.can_crit = can_crit
 
 class BaseStats:
     def __init__(
