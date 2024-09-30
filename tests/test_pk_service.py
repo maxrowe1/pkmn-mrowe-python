@@ -7,14 +7,15 @@ def test_generate_combatant():
     result1 = generate_combatant(1)
     assert result1.id == 1
     assert result1.name == 'Charmander'
-    assert 98 <= result1.attack <= 223
-    assert result1.hp == result1.hp
+    assert 98 <= result1.stats[Stat.ATTACK] <= 223
+    assert result1.hp_max == result1.hp_max
     assert len(result1.moves) == 2
 
     # No two generations are the same (possible but unlikely)
     result2 = generate_combatant(2)
     assert result1 != result2
-    assert result1.attack != result2 or result1.defense != result2.defense
+    assert (result1.stats[Stat.ATTACK] != result2.stats[Stat.ATTACK] or
+            result1.stats[Stat.DEFENSE] != result2.stats[Stat.DEFENSE])
 
 
 def test_generate_combatants():

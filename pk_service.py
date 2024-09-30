@@ -16,15 +16,21 @@ class StatData:
         self.stage = stage
 
 class PokemonData(Pokemon):
-    def __init__(self, pokemon: Pokemon, stats: BaseStats, moves):
+    def __init__(self, pokemon: Pokemon, stats, moves):
         super().__init__(pokemon.id, pokemon.name, pokemon.type1, pokemon.type2)
-        get_random_stat = lambda low, high : random.randint(low, high)
-        self.attack = get_random_stat(stats.attack_min,stats.attack_max)
-        self.defense = get_random_stat(stats.defense_min,stats.defense_max)
-        self.sp_attack = get_random_stat(stats.sp_attack_min,stats.sp_attack_max)
-        self.sp_defense = get_random_stat(stats.sp_defense_min,stats.sp_defense_max)
-        self.speed = get_random_stat(stats.speed_min,stats.speed_max)
-        self.hp = get_random_stat(stats.hp_min,stats.hp_max)
+        if isinstance(stats, BaseStats):
+            get_random_stat = lambda low, high : random.randint(low, high)
+            self.stats = {
+                Stat.ATTACK: get_random_stat(stats.attack_min,stats.attack_max),
+                Stat.DEFENSE: get_random_stat(stats.defense_min,stats.defense_max),
+                Stat.SP_ATTACK: get_random_stat(stats.sp_attack_min,stats.sp_attack_max),
+                Stat.SP_DEFENSE: get_random_stat(stats.sp_defense_min,stats.sp_defense_max),
+                Stat.SPEED: get_random_stat(stats.speed_min,stats.speed_max)
+            }
+            self.hp_max = get_random_stat(stats.hp_min, stats.hp_max)
+            self.hp_current = self.hp_max
+        else:
+            self.stats = stats
         self.moves = moves
 
     def to_json(self):
@@ -43,20 +49,18 @@ def get_stage(stage):
 
 
 class PokemonCombatant:
-    def __init__(self, pokemon_data: PokemonData):
+    def __init__(self, pokemon_data: PokemonData, combatant_id = 0):
         types = {pokemon_data.type1, pokemon_data.type2}
         types.remove(None)
 
-        self.hp_total = pokemon_data.hp
-        self.hp_current = pokemon_data.hp
+        self.id = combatant_id
+        self.hp_max = pokemon_data.hp_max
+        self.hp_current = pokemon_data.hp_max
         self.types: set = types
-        self.stats = {
-            Stat.ATTACK: StatData(pokemon_data.attack),
-            Stat.DEFENSE: StatData(pokemon_data.defense),
-            Stat.SP_ATTACK: StatData(pokemon_data.sp_attack),
-            Stat.SP_DEFENSE: StatData(pokemon_data.sp_defense),
-            Stat.SPEED: StatData(pokemon_data.speed)
-        }
+
+        self.stats = {}
+        for stat, value in pokemon_data.stats.items():
+            self.stats[stat] = StatData(value)
 
     def modify_stage(self, move: Move):
         stat_data = self.stats[move.stat]
