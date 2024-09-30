@@ -70,8 +70,8 @@ def test_use_move_on_pokemon_status():
     assert pokemon_combatant.stats[Stat.ATTACK].stage == 0
     assert result.stats[Stat.ATTACK].stage == 2
 
-    assert pokemon_combatant.get_attack_score(Category.PHYSICAL) == 50
-    assert result.get_attack_score(Category.PHYSICAL) == 100
+    assert get_current_stat(pokemon_combatant.stats[Stat.ATTACK]) == 50
+    assert get_current_stat(result.stats[Stat.ATTACK]) == 100
 
     result = use_move_on_pokemon(move, result, result) # stage is 4
     result = use_move_on_pokemon(move, result, result) # stage is 6
@@ -96,22 +96,36 @@ def test_use_move_on_pokemon_not_status():
         None,
         False
     )
-    stats = BaseStats(
+    stats1 = BaseStats(
+        200,
+        200,
         50,
         50,
-        50,
-        50,
-        25,
-        25,
+        60,
+        60,
         30,
         30,
+        100,
+        100,
+        20,
+        20
+    )
+    stats2 = BaseStats(
+        50,
+        50,
+        20,
+        20,
+        25,
+        25,
+        5,
+        5,
         60,
         60,
         20,
         20
     )
-    pokemon_data1 = PokemonData(pokemon1, stats, [move])
-    pokemon_data2 = PokemonData(pokemon2, stats, [move])
+    pokemon_data1 = PokemonData(pokemon1, stats1, [move])
+    pokemon_data2 = PokemonData(pokemon2, stats2, [move])
     attacker = PokemonCombatant(pokemon_data1)
     defender = PokemonCombatant(pokemon_data2)
 
