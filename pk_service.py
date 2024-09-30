@@ -15,11 +15,19 @@ class StatData:
         self.base_stat = base_stat
         self.stage = stage
 
-class PokemonData(Pokemon):
-    def __init__(self, pokemon: Pokemon, stats, moves):
+class PokemonCombatant(Pokemon):
+    def __init__(self, pokemon: Pokemon, stats, moves, combatant_id = 0):
         super().__init__(pokemon.id, pokemon.name, pokemon.type1, pokemon.type2)
+
+        self.id = combatant_id
+        self.pokemon_id = pokemon.id
+        self.moves = moves
+
+        self.types = {pokemon.type1, pokemon.type2}
+        self.types.remove(None)
+
         if isinstance(stats, BaseStats):
-            get_random_stat = lambda low, high : random.randint(low, high)
+            get_random_stat = lambda low, high : StatData(random.randint(low, high))
             self.stats = {
                 Stat.ATTACK: get_random_stat(stats.attack_min,stats.attack_max),
                 Stat.DEFENSE: get_random_stat(stats.defense_min,stats.defense_max),
@@ -27,52 +35,39 @@ class PokemonData(Pokemon):
                 Stat.SP_DEFENSE: get_random_stat(stats.sp_defense_min,stats.sp_defense_max),
                 Stat.SPEED: get_random_stat(stats.speed_min,stats.speed_max)
             }
-            self.hp_max = get_random_stat(stats.hp_min, stats.hp_max)
+            self.hp_max = get_random_stat(stats.hp_min, stats.hp_max).base_stat
             self.hp_current = self.hp_max
         else:
             self.stats = stats
-        self.moves = moves
-
-    def to_json(self):
-        self.moves = [x.__dict__ for x in self.moves]
-        return self.__dict__
-
-def get_current_stat(stat):
-    use_stage = get_stage(stat.stage)
-    return stat.base_stat * (1 + (.5 * use_stage))
-
-
-def get_stage(stage):
-    sign = lambda x: 1 if x > 0 else -1
-    use_stage = stage if abs(stage) <= 6 else sign(stage) * 6
-    return use_stage
-
-
-class PokemonCombatant:
-    def __init__(self, pokemon_data: PokemonData, combatant_id = 0):
-        types = {pokemon_data.type1, pokemon_data.type2}
-        types.remove(None)
-
-        self.id = combatant_id
-        self.hp_max = pokemon_data.hp_max
-        self.hp_current = pokemon_data.hp_max
-        self.types: set = types
-
-        self.stats = {}
-        for stat, value in pokemon_data.stats.items():
-            self.stats[stat] = StatData(value)
 
     def modify_stage(self, move: Move):
         stat_data = self.stats[move.stat]
         stat_data.stage += move.stage_effect
         stat_data.stage = get_stage(stat_data.stage)
 
+    def to_json(self):
+        self.moves = [x.__dict__ for x in self.moves]
+        return self.__dict__
+
+    def types(self) -> set:
+        return self.types
+
+    def get_current_stat(self, stat: Stat):
+        stat_data = self.stats[stat]
+        use_stage = get_stage(stat_data.stage)
+        return stat_data.base_stat * (1 + (.5 * use_stage))
+
+def get_stage(stage):
+    sign = lambda x: 1 if x > 0 else -1
+    use_stage = stage if abs(stage) <= 6 else sign(stage) * 6
+    return use_stage
+
 def generate_combatant(pokemon_id):
     pokemon_stats_map = get_pokemon_stats(pokemon_id)[pokemon_id]
     pokemon = pokemon_stats_map["pokemon"]
     stats = pokemon_stats_map["stats"]
     moves = get_pokemon_moves(pokemon_id)[pokemon_id]
-    return PokemonData(pokemon, stats, moves)
+    return PokemonCombatant(pokemon, stats, moves)
 
 def generate_combatants(combatant_id_dict):
     pokemon_ids = list(combatant_id_dict.values())
@@ -84,7 +79,8 @@ def generate_combatants(combatant_id_dict):
         pokemon = pokemon_stats["pokemon"]
         stats = pokemon_stats["stats"]
         moves = moves_map[pokemon_id]
-        combatants[combatant_id] = PokemonData(pokemon, stats, moves)
+        data = PokemonCombatant(pokemon, stats, moves)
+        combatants[combatant_id] = data
     return combatants
 
 def use_move_on_pokemon(move: Move, defender: PokemonCombatant, attacker: PokemonCombatant):
@@ -125,8 +121,9 @@ def use_move_on_pokemon(move: Move, defender: PokemonCombatant, attacker: Pokemo
             :return: Value of stat, with stage modifiers
             """
             is_physical = move.category == Category.PHYSICAL
-            stat_data = pokemon.stats[phy if is_physical else spc]
-            return stat_data.base_stat if critical_mod > 1 else get_current_stat(stat_data)
+            stat = phy if is_physical else spc
+            stat_data = pokemon.stats[stat]
+            return stat_data.base_stat if critical_mod > 1 else pokemon.get_current_stat(stat)
 
         defender2 = copy.deepcopy(defender)
 
@@ -154,4 +151,5 @@ def use_move_on_pokemon(move: Move, defender: PokemonCombatant, attacker: Pokemo
         target = copy.deepcopy(attacker if move.target_self else defender)
         target.modify_stage(move)
         return target
+    # TODO: Save changes to db
 

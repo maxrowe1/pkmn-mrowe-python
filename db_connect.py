@@ -90,28 +90,38 @@ class BaseStats:
         self.speed_min = speed_min
         self.speed_max = speed_max
 
-
-def run_query(query):
-    conn = psycopg2.connect(database = "postgres",
-                            user = "postgres",
-                            host= 'localhost',
-                            password = "admin",
-                            port = 5432)
+def connect_to_database():
+    conn = psycopg2.connect(database="postgres",
+                            user="postgres",
+                            host='localhost',
+                            password="admin",
+                            port=5432)
     cursor = conn.cursor()
+    return conn, cursor
+
+def execute_select_query(query):
+    conn, cursor = connect_to_database()
     cursor.execute(query)
     results = cursor.fetchall()
     conn.close()
     return results
 
+def execute_commit_query(query, *ids):
+    conn, cursor = connect_to_database()
+    cursor.executemany(query, [(x,) for x in ids])
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 def parse_pokemon(x):
     return Pokemon(x[0], x[1], x[2], x[3])
 
 def get_pokemon():
-    results = run_query('SELECT * FROM POKEMON')
+    results = execute_select_query('SELECT * FROM POKEMON')
     return [parse_pokemon(x) for x in results]
 
 def get_pokemon_moves(*ids):
-    results = run_query(
+    results = execute_select_query(
         '''SELECT
             mv.pokemon_id,
             m.id,
@@ -125,7 +135,7 @@ def get_pokemon_moves(*ids):
             m.target_self,
             m.stage_effect 
             FROM MOVES m LEFT JOIN POKEMON_MOVES mv ON m.ID = mv.MOVE_ID
-            WHERE mv.POKEMON_ID IN ({})'''.format(convert_int_tuple(ids))
+            WHERE mv.POKEMON_ID IN ({});'''.format(convert_int_tuple(ids))
     )
     pokemon_moves = defaultdict(list)
     for result in results:
@@ -137,7 +147,7 @@ def get_pokemon_moves(*ids):
 
 def get_pokemon_stats(*ids):
     pokemon_stats_map = {}
-    results = run_query(
+    results = execute_select_query(
         '''SELECT p.id, p.name, p.type1, p.type2, 
                 s.HP_MIN,
                 s.HP_MAX,
@@ -152,7 +162,7 @@ def get_pokemon_stats(*ids):
                 s.SPEED_MIN,
                 s.SPEED_MAX
                 FROM POKEMON p LEFT JOIN BASE_STATS s ON p.ID = s.POKEMON_ID 
-                WHERE p.ID in ({0})'''.format(convert_int_tuple(ids))
+                WHERE p.ID in ({0});'''.format(convert_int_tuple(ids))
         )
     for result in results:
         pokemon = parse_pokemon(result)
@@ -168,6 +178,9 @@ def get_pokemon_stats(*ids):
             )
         }
     return pokemon_stats_map
+
+def delete_combatants(*combatant_ids):
+    execute_commit_query("""DELETE FROM combatants WHERE id = %s;""", *combatant_ids)
 
 def convert_int_tuple(ids):
     return ','.join([str(x) for x in ids])
