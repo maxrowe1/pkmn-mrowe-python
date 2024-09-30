@@ -1,12 +1,13 @@
 from flask import Flask
 from flask_cors import CORS
-from db_connect import get_pokemon, Pokemon, Type
+from db_connect import get_pokemon, Pokemon
 from pk_service import generate_combatant, generate_combatants
+from classes.Enums import Type
 
 app = Flask(__name__)
 CORS(app)
 
-player = Pokemon(0, '', Type.NORMAL, None)
+player = Pokemon({ "id": 0, "name":'', "type1":Type.NORMAL, "type2":None})
 
 @app.route('/books/<player_id>', methods=['GET'])
 def get_books(player_id):

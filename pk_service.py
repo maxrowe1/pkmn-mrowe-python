@@ -1,86 +1,31 @@
 import copy
 import random
-from enum import Enum
-from db_connect import Pokemon, get_pokemon_stats, get_pokemon_moves, Category, BaseStats, Move
 
-class Stat(Enum):
-    ATTACK = "ATTACK"
-    DEFENSE = "DEFENSE"
-    SP_ATTACK = "SP_ATTACK"
-    SP_DEFENSE = "SP_DEFENSE"
-    SPEED = "SPEED"
+from classes.Enums import Category, Stat
+from classes.Move import Move
 
-class StatData:
-    def __init__(self, base_stat, stage = 0):
-        self.base_stat = base_stat
-        self.stage = stage
+from classes.PokemonCombatant import PokemonCombatant
+from db_connect import get_pokemon_stats, get_pokemon_moves, create_combatants, save_game
 
-class PokemonCombatant(Pokemon):
-    def __init__(self, pokemon: Pokemon, stats, moves, combatant_id = 0):
-        super().__init__(pokemon.id, pokemon.name, pokemon.type1, pokemon.type2)
 
-        self.id = combatant_id
-        self.pokemon_id = pokemon.id
-        self.moves = moves
-
-        self.types = {pokemon.type1, pokemon.type2}
-        self.types.remove(None)
-
-        if isinstance(stats, BaseStats):
-            get_random_stat = lambda low, high : StatData(random.randint(low, high))
-            self.stats = {
-                Stat.ATTACK: get_random_stat(stats.attack_min,stats.attack_max),
-                Stat.DEFENSE: get_random_stat(stats.defense_min,stats.defense_max),
-                Stat.SP_ATTACK: get_random_stat(stats.sp_attack_min,stats.sp_attack_max),
-                Stat.SP_DEFENSE: get_random_stat(stats.sp_defense_min,stats.sp_defense_max),
-                Stat.SPEED: get_random_stat(stats.speed_min,stats.speed_max)
-            }
-            self.hp_max = get_random_stat(stats.hp_min, stats.hp_max).base_stat
-            self.hp_current = self.hp_max
-        else:
-            self.stats = stats
-
-    def modify_stage(self, move: Move):
-        stat_data = self.stats[move.stat]
-        stat_data.stage += move.stage_effect
-        stat_data.stage = get_stage(stat_data.stage)
-
-    def to_json(self):
-        self.moves = [x.__dict__ for x in self.moves]
-        return self.__dict__
-
-    def types(self) -> set:
-        return self.types
-
-    def get_current_stat(self, stat: Stat):
-        stat_data = self.stats[stat]
-        use_stage = get_stage(stat_data.stage)
-        return stat_data.base_stat * (1 + (.5 * use_stage))
-
-def get_stage(stage):
-    sign = lambda x: 1 if x > 0 else -1
-    use_stage = stage if abs(stage) <= 6 else sign(stage) * 6
-    return use_stage
-
-def generate_combatant(pokemon_id):
+def generate_combatant(pokemon_id, create_in_db = False):
     pokemon_stats_map = get_pokemon_stats(pokemon_id)[pokemon_id]
     pokemon = pokemon_stats_map["pokemon"]
     stats = pokemon_stats_map["stats"]
     moves = get_pokemon_moves(pokemon_id)[pokemon_id]
-    return PokemonCombatant(pokemon, stats, moves)
+    combatant = PokemonCombatant(pokemon, stats, moves)
+    if create_in_db:
+        create_combatants(combatant)
+    return combatant
 
 def generate_combatants(combatant_id_dict):
-    pokemon_ids = list(combatant_id_dict.values())
-    pokemon_stats_map = get_pokemon_stats(*pokemon_ids)
-    moves_map = get_pokemon_moves(*pokemon_ids)
     combatants = {}
     for combatant_id, pokemon_id in combatant_id_dict.items():
-        pokemon_stats = pokemon_stats_map[pokemon_id]
-        pokemon = pokemon_stats["pokemon"]
-        stats = pokemon_stats["stats"]
-        moves = moves_map[pokemon_id]
-        data = PokemonCombatant(pokemon, stats, moves)
-        combatants[combatant_id] = data
+        combatants[combatant_id] = generate_combatant(pokemon_id, False)
+        combatants[combatant_id].is_player = combatant_id == 0
+    combatants = create_combatants(*tuple(combatants.values()))
+    combatants = {0 if x.is_player else 1: x for x in combatants}
+    save_game(combatants[0].id, combatants[1].id)
     return combatants
 
 def use_move_on_pokemon(move: Move, defender: PokemonCombatant, attacker: PokemonCombatant):

@@ -1,6 +1,8 @@
 import pytest
 
-from db_connect import Pokemon, Type, Move, Category, BaseStats, delete_combatants
+import settings
+from classes.Enums import Type, Category
+from db_connect import Pokemon, Move, BaseStats, delete_combatants, create_combatants
 from pk_service import generate_combatant, generate_combatants, \
     use_move_on_pokemon, Stat, PokemonCombatant
 
@@ -8,40 +10,47 @@ class TestClass:
     def __init__(self, name):
         self.name = name
 
+@pytest.fixture(scope="session", autouse=True)
+def disable_features():
+    settings.set_is_test(True)
+
 @pytest.fixture
 def setup_combatants():
-    pokemon1 = Pokemon(0, 'BeepBop', Type.NORMAL, None)
-    pokemon2 = Pokemon(0, 'Zorp', Type.NORMAL, None)
-    stats1 = BaseStats(
-        200,
-        200,
-        50,
-        50,
-        60,
-        60,
-        30,
-        30,
-        100,
-        100,
-        20,
-        20
-    )
-    stats2 = BaseStats(
-        50,
-        50,
-        20,
-        20,
-        25,
-        25,
-        5,
-        5,
-        60,
-        60,
-        20,
-        20
-    )
+    pokemon1 = Pokemon({"id":1, "name":'BeepBop', "type1":Type.NORMAL, "type2":None})
+    pokemon2 = Pokemon({"id":2, "name":'Zorp', "type1":Type.NORMAL, "type2":None})
+    stats1 = BaseStats({
+        "hp_min": 200,
+        "hp_max": 200,
+        "attack_min": 50,
+        "attack_max": 50,
+        "defense_min": 60,
+        "defense_max": 60,
+        "sp_attack_min": 30,
+        "sp_attack_max": 30,
+        "sp_defense_min": 100,
+        "sp_defense_max": 100,
+        "speed_min": 20,
+        "speed_max": 20
+    })
+    stats2 = BaseStats({
+        "hp_min": 50,
+        "hp_max": 50,
+        "attack_min": 20,
+        "attack_max": 20,
+        "defense_min": 25,
+        "defense_max": 25,
+        "sp_attack_min": 5,
+        "sp_attack_max": 5,
+        "sp_defense_min": 60,
+        "sp_defense_max": 60,
+        "speed_min": 20,
+        "speed_max": 20
+    })
+
     attacker = PokemonCombatant(pokemon1, stats1, [])
     defender = PokemonCombatant(pokemon2, stats2, [])
+
+    create_combatants(attacker, defender)
 
     yield attacker, defender
 
@@ -83,18 +92,19 @@ def test_get_current_stat(setup_combatants):
 
 def test_use_move_on_pokemon_status(setup_combatants):
     pokemon_combatant, x = setup_combatants
-    move = Move(
-        0,
-        'Status Move',
-        Type.NORMAL,
-        Category.STATUS,
-        None,
-        100,
-        5,
-        Stat.ATTACK,
-        True,
-        2
-    )
+    move = Move({
+        "id":0,
+        "name":'Status Move',
+        "move_type":Type.NORMAL,
+        "category":Category.STATUS,
+        "move_power":None,
+        "accuracy":100,
+        "base_pp":5,
+        "stat":Stat.ATTACK,
+        "target_self":True,
+        "stage_effect":2,
+        "can_crit":False
+    })
 
     result = use_move_on_pokemon(move, pokemon_combatant, pokemon_combatant)
 
@@ -116,19 +126,19 @@ def test_use_move_on_pokemon_status(setup_combatants):
 
 def test_use_move_on_pokemon_not_status(setup_combatants):
     attacker, defender = setup_combatants
-    move = Move(
-        0,
-        'Physical Move',
-        Type.FIRE,
-        Category.PHYSICAL,
-        100,
-        100,
-        5,
-        None,
-        None,
-        None,
-        False
-    )
+    move = Move({
+        "id":0,
+        "name":'Physical Move',
+        "move_type":Type.FIRE,
+        "category":Category.PHYSICAL,
+        "move_power":100,
+        "accuracy":100,
+        "base_pp":5,
+        "stat":None,
+        "target_self":None,
+        "stage_effect":None,
+        "can_crit":False
+    })
 
     # Crit = 1, Power = 100, Attack = 50, Defense = 25, no STAB, no Type effect.
     # ((( ((2*Crit)/5 + 2) * Power * (Attack/Defense))/50 ) + 2) * STAB * Type * rand

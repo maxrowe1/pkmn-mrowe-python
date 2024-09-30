@@ -1,94 +1,19 @@
 from collections import defaultdict
 
-import psycopg2
+from psycopg2 import ProgrammingError
+from psycopg2.extras import RealDictCursor
+
+import settings
+from classes.Enums import Stat
 from enum import Enum
 
-class Type(Enum):
-    NORMAL = 'NORMAL'
-    FIRE = 'FIRE'
-    WATER = 'WATER'
-    ELECTRIC = 'ELECTRIC'
-    GRASS = 'GRASS'
-    ICE = 'ICE'
-    FIGHTING = 'FIGHTING'
-    POISON = 'POISON'
-    GROUND = 'GROUND'
-    FLYING = 'FLYING'
-    PSYCHIC = 'PSYCHIC'
-    BUG = 'BUG'
-    ROCK = 'ROCK'
-    GHOST = 'GHOST'
-    DRAGON = 'DRAGON'
-    DARK = 'DARK'
-    STEEL = 'STEEL'
-    FAIRY = 'FAIRY'
+import psycopg2
 
-class Category(Enum):
-    PHYSICAL = "PHYSICAL"
-    SPECIAL = "SPECIAL"
-    STATUS = "STATUS"
+from classes.BaseStats import BaseStats
+from classes.Move import Move
+from classes.Pokemon import Pokemon
+from classes.PokemonCombatant import PokemonCombatant
 
-class Pokemon:
-    def __init__(self, pokemon_id, name, type1, type2):
-        self.id = pokemon_id
-        self.name = name
-        self.type1 = type1
-        self.type2 = type2
-
-class Move:
-    def __init__(
-            self,
-            move_id,
-            name,
-            move_type,
-            category,
-            power,
-            accuracy,
-            base_pp,
-            stat,
-            target_self,
-            stage_effect,
-            can_crit = True
-    ):
-        self.id = move_id
-        self.name = name
-        self.type = move_type
-        self.category = category
-        self.power = power
-        self.accuracy = accuracy
-        self.base_pp = base_pp
-        self.stat = stat
-        self.target_self = target_self
-        self.stage_effect = stage_effect
-        self.can_crit = can_crit
-
-class BaseStats:
-    def __init__(
-            self,
-            hp_min,
-            hp_max,
-            attack_min,
-            attack_max,
-            defense_min,
-            defense_max,
-            sp_attack_min,
-            sp_attack_max,
-            sp_defense_min,
-            sp_defense_max,
-            speed_min,
-            speed_max):
-        self.hp_min = hp_min
-        self.hp_max = hp_max
-        self.attack_min = attack_min
-        self.attack_max = attack_max
-        self.defense_min = defense_min
-        self.defense_max = defense_max
-        self.sp_attack_min = sp_attack_min
-        self.sp_attack_max = sp_attack_max
-        self.sp_defense_min = sp_defense_min
-        self.sp_defense_max = sp_defense_max
-        self.speed_min = speed_min
-        self.speed_max = speed_max
 
 def connect_to_database():
     conn = psycopg2.connect(database="postgres",
@@ -96,7 +21,7 @@ def connect_to_database():
                             host='localhost',
                             password="admin",
                             port=5432)
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     return conn, cursor
 
 def execute_select_query(query):
@@ -106,81 +31,114 @@ def execute_select_query(query):
     conn.close()
     return results
 
-def execute_commit_query(query, *ids):
+def execute_commit_query(query, values):
+    new_rows = []
     conn, cursor = connect_to_database()
-    cursor.executemany(query, [(x,) for x in ids])
-    conn.commit()
+
+    for value in values:
+        cursor.execute(query, value)
+        try:
+            new_rows.append(cursor.fetchone())
+        except ProgrammingError as e:
+            if "no results to fetch" not in repr(e):
+                raise e
+
+    if not settings.is_test():
+        conn.commit()
+
     cursor.close()
     conn.close()
-
-def parse_pokemon(x):
-    return Pokemon(x[0], x[1], x[2], x[3])
+    return new_rows
 
 def get_pokemon():
     results = execute_select_query('SELECT * FROM POKEMON')
-    return [parse_pokemon(x) for x in results]
+    return [Pokemon(dict(x)) for x in results]
 
 def get_pokemon_moves(*ids):
     results = execute_select_query(
         '''SELECT
             mv.pokemon_id,
-            m.id,
-            m.name,
-            m.move_type,
-            m.category,
-            m.move_power,
-            m.accuracy,
-            m.base_pp,
-            m.stat,
-            m.target_self,
-            m.stage_effect 
+            m.*
             FROM MOVES m LEFT JOIN POKEMON_MOVES mv ON m.ID = mv.MOVE_ID
-            WHERE mv.POKEMON_ID IN ({});'''.format(convert_int_tuple(ids))
+            WHERE mv.POKEMON_ID IN ({0});'''.format(convert_int_tuple(ids))
     )
     pokemon_moves = defaultdict(list)
     for result in results:
-        current_list = pokemon_moves[result[0]]
+        current_list = pokemon_moves[result["pokemon_id"]]
         if len(current_list) < 4:
-            current_list.append(
-                Move(result[1], result[2], result[3], result[4], result[5], result[6], result[7], result[8], result[9], result[10]))
+            current_list.append(Move(result))
     return pokemon_moves
 
 def get_pokemon_stats(*ids):
     pokemon_stats_map = {}
     results = execute_select_query(
-        '''SELECT p.id, p.name, p.type1, p.type2, 
-                s.HP_MIN,
-                s.HP_MAX,
-                s.ATTACK_MIN ,
-                s.ATTACK_MAX ,
-                s.DEFENSE_MIN ,
-                s.DEFENSE_MAX ,
-                s.SP_ATTACK_MIN,
-                s.SP_ATTACK_MAX,
-                s.SP_DEFENSE_MIN,
-                s.SP_DEFENSE_MAX,
-                s.SPEED_MIN,
-                s.SPEED_MAX
+        '''SELECT p.*, s.*
                 FROM POKEMON p LEFT JOIN BASE_STATS s ON p.ID = s.POKEMON_ID 
                 WHERE p.ID in ({0});'''.format(convert_int_tuple(ids))
         )
     for result in results:
-        pokemon = parse_pokemon(result)
+        pokemon = Pokemon(result)
         pokemon_stats_map[pokemon.id] = {
             "pokemon": pokemon,
-            "stats": BaseStats(
-                result[4], result[5],
-                result[6], result[7],
-                result[8], result[9],
-                result[10], result[11],
-                result[12], result[13],
-                result[14], result[15],
-            )
+            "stats": BaseStats(result)
         }
     return pokemon_stats_map
 
+def create_combatants(*combatants: PokemonCombatant):
+    values_list = []
+    columns = list(vars(combatants[0]))
+    columns.remove("id")
+    columns.remove("name")
+    columns.remove("type1")
+    columns.remove("type2")
+    columns.remove("moves")
+    columns.remove("types")
+    columns.remove("stats")
+
+    for stat in combatants[0].stats:
+        columns.append(stat.value)
+
+    columns = tuple(columns)
+
+    for combatant in combatants:
+        values = []
+        combatant_dict = combatant.__dict__
+        for column in columns:
+            if column in combatant_dict.keys():
+                value = combatant_dict[column]
+                values.append((value if not isinstance(value, Enum) else value.value) if value is not None else None)
+            else:
+                values.append(combatant.stats[Stat[column]].base_stat)
+        values_list.append(tuple(values))
+
+    format_query_string = lambda x: str(x).replace("'","")
+
+    new_combatants = execute_commit_query(
+        """INSERT INTO combatants""" +
+        format_query_string(columns) +
+        """ VALUES""" +
+        format_query_string(tuple(["%s" for x in range(0, len(columns))])) +
+        """ RETURNING *""",
+        values_list
+    )
+
+    updated_combatants = []
+    for combatant in combatants:
+        combatant.id = next(x for x in new_combatants if x["is_player"] == combatant.is_player)["id"]
+        updated_combatants.append(combatant)
+
+    return updated_combatants
+
+def save_game(p_combatant_id, e_combatant_id):
+    if settings.is_test():
+        return
+    execute_commit_query(
+        """INSERT INTO games(p_combatant_id, e_combatant_id)
+         VALUES (%s,%s)""", [(p_combatant_id, e_combatant_id)])
+
 def delete_combatants(*combatant_ids):
-    execute_commit_query("""DELETE FROM combatants WHERE id = %s;""", *combatant_ids)
+    results = execute_commit_query("""DELETE FROM combatants WHERE id = %s;""", [(x,) for x in combatant_ids])
+    assert len(results) == 0
 
 def convert_int_tuple(ids):
     return ','.join([str(x) for x in ids])
