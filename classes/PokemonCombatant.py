@@ -4,6 +4,9 @@ from classes.Pokemon import Pokemon
 from classes.Enums import Stat
 import random
 
+from utils import jsonify_dict
+
+
 def get_stage(stage):
     sign = lambda x: 1 if x > 0 else -1
     use_stage = stage if abs(stage) <= 6 else sign(stage) * 6
@@ -33,7 +36,10 @@ class PokemonCombatant(Pokemon):
             self.hp_max = get_random_stat(stats.hp_min, stats.hp_max).base_stat
             self.hp_current = self.hp_max
         else:
-            self.stats = stats
+            self.stats = stats["stat_list"]
+            self.hp_max = stats["hp_max"]
+            self.hp_current = stats["hp_current"]
+            self.is_player = stats["is_player"]
 
     def modify_stage(self, move: Move):
         stat_data = self.stats[move.stat]
@@ -42,11 +48,8 @@ class PokemonCombatant(Pokemon):
 
     def to_json(self):
         self.moves = [x.__dict__ for x in self.moves]
-        self.stats = {k: v for d in [{x.value:y.__dict__} for x,y in self.stats.items()] for k, v in d.items()}
+        self.stats = jsonify_dict(self.stats)
         return self.__dict__
-
-    def types(self) -> set:
-        return self.types
 
     def get_current_stat(self, stat: Stat):
         stat_data = self.stats[stat]

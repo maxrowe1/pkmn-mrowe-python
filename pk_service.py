@@ -2,31 +2,37 @@ import copy
 import random
 
 from classes.Enums import Category, Stat
+from classes.GameComplete import GameComplete
 from classes.Move import Move
 
 from classes.PokemonCombatant import PokemonCombatant
-from db_connect import get_pokemon_stats, get_pokemon_moves, create_combatants, save_game
+from db_connect import get_pokemon_stats, get_pokemon_moves, create_combatants, get_game_data, get_combatant_data, \
+    save_combatant_moves
+from utils import get_player_or_enemy_id
 
 
-def generate_combatant(pokemon_id, create_in_db = False):
+def generate_combatant(player_or_enemy_id, pokemon_id):
     pokemon_stats_map = get_pokemon_stats(pokemon_id)[pokemon_id]
     pokemon = pokemon_stats_map["pokemon"]
     stats = pokemon_stats_map["stats"]
     moves = get_pokemon_moves(pokemon_id)[pokemon_id]
     combatant = PokemonCombatant(pokemon, stats, moves)
-    if create_in_db:
-        create_combatants(combatant)
+    combatant.is_player = player_or_enemy_id == 0
+    combatant = create_combatants(combatant)[0]
+    combatant.moves = save_combatant_moves(combatant.id, combatant.moves)
     return combatant
 
 def generate_combatants(combatant_id_dict):
     combatants = {}
-    for combatant_id, pokemon_id in combatant_id_dict.items():
-        combatants[combatant_id] = generate_combatant(pokemon_id, False)
-        combatants[combatant_id].is_player = combatant_id == 0
-    combatants = create_combatants(*tuple(combatants.values()))
-    combatants = {0 if x.is_player else 1: x for x in combatants}
-    save_game(combatants[0].id, combatants[1].id)
+    for player_or_enemy_id, pokemon_id in combatant_id_dict.items():
+        combatants[player_or_enemy_id] = generate_combatant(player_or_enemy_id, pokemon_id)
+    combatants = {get_player_or_enemy_id(x): x for x in combatants.values()}
     return combatants
+
+def get_game(game_id):
+    game = get_game_data(game_id)
+    combatants = get_combatant_data(game.player_combatant_id, game.enemy_combatant_id)
+    return GameComplete(game_id, combatants)
 
 def use_move_on_pokemon(move: Move, defender: PokemonCombatant, attacker: PokemonCombatant):
     if move.accuracy < 100:

@@ -1,6 +1,5 @@
 import pytest
 
-import settings
 from classes.Enums import Type, Category
 from db_connect import Pokemon, Move, BaseStats, delete_combatants, create_combatants
 from pk_service import generate_combatant, generate_combatants, \
@@ -9,10 +8,6 @@ from pk_service import generate_combatant, generate_combatants, \
 class TestClass:
     def __init__(self, name):
         self.name = name
-
-@pytest.fixture(scope="session", autouse=True)
-def disable_features():
-    settings.set_is_test(True)
 
 @pytest.fixture
 def setup_combatants():
@@ -57,15 +52,16 @@ def setup_combatants():
     delete_combatants(attacker.id, defender.id)
 
 def test_generate_combatant():
-    result1 = generate_combatant(1)
+    result1 = generate_combatant(0, 1)
     assert result1.pokemon_id == 1
     assert result1.name == 'Charmander'
     assert 98 <= result1.stats[Stat.ATTACK].base_stat <= 223
     assert result1.hp_max == result1.hp_max
     assert len(result1.moves) == 2
+    assert result1.is_player
 
     # No two generations are the same (possible but unlikely)
-    result2 = generate_combatant(2)
+    result2 = generate_combatant(0, 2)
     assert result1 != result2
     assert (result1.stats[Stat.ATTACK] != result2.stats[Stat.ATTACK] or
             result1.stats[Stat.DEFENSE] != result2.stats[Stat.DEFENSE])
@@ -80,6 +76,9 @@ def test_generate_combatants():
     assert len([move for move in results[1].moves if move.name == 'Scratch']) == 0
     assert len([move for move in results[1].moves if move.name == 'Tackle']) == 1
 
+def load_game():
+    # TODO: Get game data when new game is made, then data when the game is loaded from db. They should match
+    pass
 
 def test_get_current_stat(setup_combatants):
     pokemon_a, x = setup_combatants
