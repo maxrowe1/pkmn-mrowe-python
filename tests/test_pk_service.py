@@ -1,7 +1,8 @@
 import pytest
 
 from classes.Enums import Type, Category
-from db_connect import Pokemon, Move, BaseStats, delete_combatants, create_combatants
+from db_connect import Pokemon, Move, BaseStats, delete_combatants, create_combatants, save_combatant_stats, \
+    get_combatant_stats
 from pk_service import generate_combatant, generate_combatants, \
     use_move_on_pokemon, Stat, PokemonCombatant
 
@@ -80,6 +81,7 @@ def load_game():
     # TODO: Get game data when new game is made, then data when the game is loaded from db. They should match
     pass
 
+
 def test_get_current_stat(setup_combatants):
     pokemon_a, x = setup_combatants
     data = pokemon_a.stats[Stat.ATTACK]
@@ -87,6 +89,30 @@ def test_get_current_stat(setup_combatants):
     data.stage = 3
     result = pokemon_a.get_current_stat(Stat.ATTACK)
     assert result == 125
+
+
+def test_save_current_stat(setup_combatants):
+    pokemon_a, x = setup_combatants
+
+    # Stage non-zero; save
+    pokemon_a.stats[Stat.ATTACK].stage = 3
+    result = save_combatant_stats(pokemon_a.id, pokemon_a.stats)
+    assert len(result) == 1
+    db_stats = get_combatant_stats(pokemon_a.id)
+    assert len(db_stats) == 1
+    assert Stat.ATTACK in db_stats[pokemon_a.id].keys()
+    assert db_stats[pokemon_a.id][Stat.ATTACK].stage == 3
+
+    # attack stat removed; defense is saved
+    pokemon_a.stats[Stat.ATTACK].stage = 0
+    pokemon_a.stats[Stat.DEFENSE].stage = -1
+    result = save_combatant_stats(pokemon_a.id, pokemon_a.stats)
+    assert len(result) == 1
+    db_stats = get_combatant_stats(pokemon_a.id)
+    assert len(db_stats) == 1
+    assert Stat.ATTACK not in db_stats[pokemon_a.id].keys()
+    assert Stat.DEFENSE in db_stats[pokemon_a.id].keys()
+    assert db_stats[pokemon_a.id][Stat.DEFENSE].stage == -1
 
 
 def test_use_move_on_pokemon_status(setup_combatants):

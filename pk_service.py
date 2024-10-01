@@ -6,8 +6,7 @@ from classes.GameComplete import GameComplete
 from classes.Move import Move
 
 from classes.PokemonCombatant import PokemonCombatant
-from db_connect import get_pokemon_stats, get_pokemon_moves, create_combatants, get_game_data, get_combatant_data, \
-    save_combatant_moves
+from db_connect import get_pokemon_stats, get_pokemon_moves, create_combatants, get_game_data, get_combatant_data
 from utils import get_player_or_enemy_id
 
 
@@ -19,7 +18,6 @@ def generate_combatant(player_or_enemy_id, pokemon_id):
     combatant = PokemonCombatant(pokemon, stats, moves)
     combatant.is_player = player_or_enemy_id == 0
     combatant = create_combatants(combatant)[0]
-    combatant.moves = save_combatant_moves(combatant.id, combatant.moves)
     return combatant
 
 def generate_combatants(combatant_id_dict):
@@ -34,17 +32,19 @@ def get_game(game_id):
     combatants = get_combatant_data(game.player_combatant_id, game.enemy_combatant_id)
     return GameComplete(game_id, combatants)
 
-def use_move_on_pokemon(move: Move, defender: PokemonCombatant, attacker: PokemonCombatant):
+def use_move_on_pokemon(move: Move, target: PokemonCombatant, attacker: PokemonCombatant):
     if move.accuracy < 100:
         rand_accuracy = random.randint(0, 100)
         if rand_accuracy > move.accuracy:
             # Move missed; no changes
-            return defender
+            return target
 
     # Move hits
     if move.category != Category.STATUS:
         def get_critical():
             """
+            Gen I math
+            Gen VII+ probability
             Calculated based on Stat stage from attacker; TODO: simple for now; include stages
             :return:
             """
@@ -52,6 +52,7 @@ def use_move_on_pokemon(move: Move, defender: PokemonCombatant, attacker: Pokemo
 
         def get_damage_random(penultimate_damage):
             """
+            Gen I description
             random is realized as a multiplication by a random uniformly distributed integer between 217 and 255 (inclusive),
             followed by an integer division by 255. If the calculated damage thus far is 1, random is always 1.
             :param penultimate_damage: Damage calculated up until this point
@@ -63,6 +64,7 @@ def use_move_on_pokemon(move: Move, defender: PokemonCombatant, attacker: Pokemo
 
         def get_score(pokemon: PokemonCombatant, phy, spc):
             """
+            Gen I description
             Effective physical stat of the Pokémon if the used move is a physical move, or the effective Special stat
             of the Pokémon if the used move is a special move.
             For a critical hit, all modifiers are ignored, and the unmodified stat is used instead).
@@ -76,31 +78,34 @@ def use_move_on_pokemon(move: Move, defender: PokemonCombatant, attacker: Pokemo
             stat_data = pokemon.stats[stat]
             return stat_data.base_stat if critical_mod > 1 else pokemon.get_current_stat(stat)
 
-        defender2 = copy.deepcopy(defender)
+        updated_target = copy.deepcopy(target)
 
+        # Damage is increased based on randomized critical hit modifier
         critical_mod = 1 if not move.can_crit else get_critical()
 
+        # The effective (Special)Attack stat of the attacking Pokémon
         attack = get_score(attacker, Stat.ATTACK, Stat.SP_ATTACK)
-        defense = get_score(defender, Stat.DEFENSE, Stat.SP_DEFENSE)
+        # The effective (Special)Defense stat of the updated_target
+        defense = get_score(target, Stat.DEFENSE, Stat.SP_DEFENSE)
 
         # Same type ability bonus (move type matches one of the attacker's two types)
         stab = 1.5 if move.type in attacker.types else 1
 
-        type_bonus = 1 # TODO: Not very effective, super effective, product of both target types
+        type_bonus = 1 # TODO: Not very effective, super effective, product of both updated_target types
 
-        # Generation 1 damage calculation, as seen on Bulbapedia
+        # Gen I damage calculation, as seen on Bulbapedia
         damage = (( (((2 * critical_mod) / 5 + 2) * move.power * (attack/defense)) / 50 ) + 2) * stab * type_bonus
         damage = damage * get_damage_random(damage)
 
         # HP = HP - damage (rounded down); HP minimum of 0
-        hp_current = defender2.hp_current - damage // 1
-        defender2.hp_current = 0 if hp_current < 0 else hp_current
+        hp_current = updated_target.hp_current - damage // 1
+        updated_target.hp_current = 0 if hp_current < 0 else hp_current
 
-        return defender2
+        return updated_target
     else:
         # Target is affected by stat changes
-        target = copy.deepcopy(attacker if move.target_self else defender)
-        target.modify_stage(move)
-        return target
-    # TODO: Save changes to db
+        updated_target = copy.deepcopy(attacker if move.target_self else target)
+        updated_target.modify_stage(move)
+        return updated_target
+    # TODO: Save changes to db; combatants, combatant_moves (pp), combatant_stats
 

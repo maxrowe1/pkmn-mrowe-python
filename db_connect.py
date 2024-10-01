@@ -11,7 +11,7 @@ import psycopg2
 from classes.BaseStats import BaseStats
 from classes.Move import Move
 from classes.Pokemon import Pokemon
-from classes.PokemonCombatant import PokemonCombatant
+from classes.PokemonCombatant import PokemonCombatant, StatData
 from classes.Game import Game
 from utils import get_player_or_enemy_id
 
@@ -118,6 +118,11 @@ def get_combatant_data(*combatant_ids):
 
     pokemon_list = get_pokemon(tuple([x["pokemon_id"] for x in combatant_results]))
     moves_list = get_combatant_moves(*combatant_ids)
+    stat_changes_list = get_combatant_stats(*combatant_ids)
+
+    def get_stat(stat: Stat):
+        combatant_stats = stat_changes_list[combatant_id]
+        return combatant_stats[stat] if stat in combatant_stats.keys() else StatData(combatant_result[stat.value.lower()])
 
     combatants = {}
     for combatant_result in combatant_results:
@@ -129,12 +134,11 @@ def get_combatant_data(*combatant_ids):
             "hp_max": combatant_result["hp_max"],
             "is_player": combatant_result["is_player"],
             "stat_list": {
-                # TODO: BaseStat with stored stage value
-                Stat.ATTACK: combatant_result["attack"],
-                Stat.DEFENSE: combatant_result["defense"],
-                Stat.SP_ATTACK: combatant_result["sp_attack"],
-                Stat.SP_DEFENSE: combatant_result["sp_defense"],
-                Stat.SPEED: combatant_result["speed"]
+                Stat.ATTACK: get_stat(Stat.ATTACK),
+                Stat.DEFENSE: get_stat(Stat.DEFENSE),
+                Stat.SP_ATTACK: get_stat(Stat.SP_ATTACK),
+                Stat.SP_DEFENSE: get_stat(Stat.SP_DEFENSE),
+                Stat.SPEED: get_stat(Stat.SPEED)
             }
         }
         combatant = PokemonCombatant(pokemon, stats, moves, combatant_id)
@@ -159,6 +163,32 @@ def get_combatant_moves(*combatant_ids):
         combatant_moves_dict[combatant_id] = [Move(x) for x in results if x["combatant_id"] == combatant_id]
     return combatant_moves_dict
 
+def get_combatant_stats(*combatant_ids):
+    results = execute_select_query(
+        """
+        SELECT s.*,
+        CASE
+            WHEN s.stat = 'ATTACK'::stats then c.attack
+            WHEN s.stat = 'DEFENSE' then c.defense
+            WHEN s.stat = 'SP_ATTACK' then c.sp_attack
+            WHEN s.stat = 'SP_DEFENSE' then c.sp_defense
+            WHEN s.stat = 'SPEED' then c.speed
+            Else 0
+        END as base_stat
+        FROM combatant_stats s
+        JOIN combatants c on c.id = s.combatant_id
+        WHERE s.combatant_id IN ({0});
+        """.format(convert_int_tuple(combatant_ids))
+    )
+
+    combatant_stats_dict = {}
+    for combatant_id in combatant_ids:
+        combatant_stats_dict[combatant_id] = {}
+        for stat_data in [x for x in results if x["combatant_id"] == combatant_id]:
+            combatant_stats_dict[combatant_id][Stat[stat_data["stat"]]] = (
+                StatData(stat_data["base_stat"], stat_data["stage"]))
+    return combatant_stats_dict
+
 def create_combatants(*combatants: PokemonCombatant):
     remove_vars = ["id","name","type1","type2","moves","types","stats"]
     add_vars = [x.value for x in combatants[0].stats]
@@ -170,6 +200,8 @@ def create_combatants(*combatants: PokemonCombatant):
     updated_combatants = []
     for combatant in combatants:
         combatant.id = next(x for x in new_combatants if x["is_player"] == combatant.is_player)["id"]
+        combatant.moves = save_combatant_moves(combatant.id, combatant.moves)
+        save_combatant_stats(combatant.id, combatant.stats)
         updated_combatants.append(combatant)
 
     return updated_combatants
@@ -179,7 +211,7 @@ def save_combatant_moves(combatant_id, moves):
     add_vars = ["combatant_id", "move_id", "move_number", "pp_current"]
 
     def append_data(values, cm, column):
-        cm_object: Move = [x for x in moves if x.id == cm["id"]][0]
+        cm_object: Move = [x for x in moves if x.id == cm["move_id"]][0]
         match column:
             case "combatant_id":
                 values.append(combatant_id)
@@ -191,7 +223,7 @@ def save_combatant_moves(combatant_id, moves):
                 values.append(cm_object.base_pp)
 
     new_combatant_moves = execute_insert_query(
-        "combatant_moves", [{"id":moves[x].id} for x in range(0, len(moves))], add_vars, [], append_data)
+        "combatant_moves", [{"move_id":moves[x].id} for x in range(0, len(moves))], add_vars, [], append_data)
 
     updated_moves = []
     for move in moves:
@@ -202,9 +234,25 @@ def save_combatant_moves(combatant_id, moves):
     return updated_moves
 
 
+def save_combatant_stats(combatant_id, stats):
+    # Remove existing stats from DB
+    execute_commit_query("""DELETE FROM combatant_stats WHERE combatant_id = %s;""", [(combatant_id,)])
+
+    insert_list = [{"combatant_id":combatant_id, "stat":x, "stage":y.stage} for x,y in stats.items() if y.stage != 0]
+    new_combatant_stats = execute_insert_query(
+        "combatant_stats", insert_list, [], []
+    )
+
+    saved_stats = {}
+    for stat_data in new_combatant_stats:
+        stat = Stat[stat_data["stat"]]
+        saved_stats[stat] = StatData(stats[stat].base_stat, stat_data["stage"])
+    return saved_stats
+
+
 def execute_insert_query(table_name, insert_list, add_vars, remove_vars, append_extra = None):
 
-    columns = list(vars(insert_list[0])) if len(insert_list) > 0 and '__dict__' in dir(insert_list[0]) else []
+    columns = [] if len(insert_list) <= 0 else list(insert_list[0].keys()) if isinstance(insert_list[0], dict) else list(vars(insert_list[0])) if '__dict__' in dir(insert_list[0]) else []
 
     def adjust(var_list, func):
         for var in var_list:
@@ -212,12 +260,12 @@ def execute_insert_query(table_name, insert_list, add_vars, remove_vars, append_
     adjust(remove_vars, columns.remove)
     adjust(add_vars, columns.append)
 
-    columns = tuple(columns)
+    columns = tuple(set(columns))
 
     values_list = []
     for insert_object in insert_list:
         values = []
-        value_dict = insert_object.__dict__ if '__dict__' in dir(insert_object) else {}
+        value_dict = insert_object if isinstance(insert_object, dict) else insert_object.__dict__ if '__dict__' in dir(insert_object) else {}
         for column in columns:
             if column in value_dict.keys():
                 # values from surface-level attributes
