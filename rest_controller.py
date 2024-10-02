@@ -1,9 +1,8 @@
 from flask import Flask
 from flask_cors import CORS
 
-from classes.GameComplete import GameComplete
-from db_connect import get_all_pokemon, Pokemon, save_game
-from pk_service import generate_combatant, generate_combatants, get_game
+from db_connect import get_all_pokemon, Pokemon
+from pk_service import generate_combatant, get_game, new_game
 from classes.Enums import Type
 
 app = Flask(__name__)
@@ -26,13 +25,11 @@ def get_all_pokemon():
 
 @app.route('/pokemon/<pokemon_id>/generate', methods=['GET'])
 def generate_pokemon(pokemon_id):
-    return generate_combatant(pokemon_id).__dict__
+    return generate_combatant(0, pokemon_id).__dict__
 
 @app.route('/game', methods=['GET'])
 def generate_new_game():
-    combatants_map = generate_combatants({0: 1, 1: 2})
-    new_game = save_game(combatants_map[0].id, combatants_map[1].id)
-    return GameComplete(new_game.id, combatants_map).to_json()
+    return new_game({0: 1, 1: 2}).to_json()
 
 @app.route('/game/<game_id>', methods=["GET"])
 def get_game_by_id(game_id):

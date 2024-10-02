@@ -6,7 +6,9 @@ from classes.GameComplete import GameComplete
 from classes.Move import Move
 
 from classes.PokemonCombatant import PokemonCombatant
-from db_connect import get_pokemon_stats, get_pokemon_moves, create_combatants, get_game_data, get_combatant_data
+from db_connect import get_pokemon_stats, get_pokemon_moves, create_combatants, get_game_data, get_combatant_data, \
+    save_game
+from redis_connect import get_data_in_redis
 from utils import get_player_or_enemy_id
 
 
@@ -28,9 +30,18 @@ def generate_combatants(combatant_id_dict):
     return combatants
 
 def get_game(game_id):
-    game = get_game_data(game_id)
-    combatants = get_combatant_data(game.player_combatant_id, game.enemy_combatant_id)
+    game = get_data_in_redis(game_id)
+    if game is not None:
+        combatants = game["pokemon"]
+    else:
+        game = get_game_data(game_id)
+        combatants = get_combatant_data(game.player_combatant_id, game.enemy_combatant_id)
     return GameComplete(game_id, combatants)
+
+def new_game(combatant_id_dict):
+    combatants_map = generate_combatants(combatant_id_dict)
+    game = save_game(combatants_map[0].id, combatants_map[1].id)
+    return GameComplete(game.id, combatants_map)
 
 def use_move_on_pokemon(move: Move, target: PokemonCombatant, attacker: PokemonCombatant):
     if move.accuracy < 100:
@@ -67,7 +78,7 @@ def use_move_on_pokemon(move: Move, target: PokemonCombatant, attacker: PokemonC
             Gen I description
             Effective physical stat of the Pokémon if the used move is a physical move, or the effective Special stat
             of the Pokémon if the used move is a special move.
-            For a critical hit, all modifiers are ignored, and the unmodified stat is used instead).
+            For a critical hit, all modifiers are ignored, and the unmodified stat is used instead.
             :param pokemon: Attacker or Defender
             :param phy: Attack or Defense
             :param spc: Special Attack or Special Defense

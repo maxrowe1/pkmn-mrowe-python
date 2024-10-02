@@ -283,10 +283,10 @@ def execute_insert_query(table_name, insert_list, add_vars, remove_vars, append_
     format_query_string = lambda x: str(x).replace("'", "")
 
     new_combatants = execute_commit_query(
-        """INSERT INTO """ + table_name + """ """ +
+        f"""INSERT INTO {table_name} """ +
         format_query_string(columns) +
         """ VALUES""" +
-        format_query_string(tuple(["%s" for x in range(0, len(columns))])) +
+        format_query_string(tuple(["%s"] * len(columns))) +
         """ RETURNING *""",
         values_list
     )
