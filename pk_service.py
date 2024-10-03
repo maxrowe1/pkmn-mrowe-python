@@ -2,12 +2,13 @@ import copy
 import random
 
 from classes.Enums import Category, Stat
+from classes.Game import Game
 from classes.GameComplete import GameComplete
 from classes.Move import Move
 
 from classes.PokemonCombatant import PokemonCombatant
 from db_connect import get_pokemon_stats, get_pokemon_moves, create_combatants, get_game_data, get_combatant_data, \
-    save_game
+    save_game, get_last_game_saved
 from redis_connect import get_data_in_redis
 from utils import get_player_or_enemy_id
 
@@ -29,14 +30,21 @@ def generate_combatants(combatant_id_dict):
     combatants = {get_player_or_enemy_id(x): x for x in combatants.values()}
     return combatants
 
+def get_combatants(game: Game):
+    return get_combatant_data(game.player_combatant_id, game.enemy_combatant_id)
+
 def get_game(game_id):
     game = get_data_in_redis(game_id)
     if game is not None:
         combatants = game["pokemon"]
     else:
         game = get_game_data(game_id)
-        combatants = get_combatant_data(game.player_combatant_id, game.enemy_combatant_id)
+        combatants = get_combatants(game)
     return GameComplete(game_id, combatants)
+
+def get_last_game():
+    game = get_last_game_saved()
+    return get_game(game.id)
 
 def new_game(combatant_id_dict):
     combatants_map = generate_combatants(combatant_id_dict)

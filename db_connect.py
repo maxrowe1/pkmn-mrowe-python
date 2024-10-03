@@ -107,6 +107,21 @@ def get_game_data(game_id):
 
     return Game(results[0])
 
+def get_last_game_saved():
+    results = execute_select_query(
+        """
+        SELECT *
+        FROM games
+        ORDER BY modified_timestamp DESC
+        LIMIT 1;
+        """
+    )
+
+    if len(results) <= 0:
+        raise Exception("No recent games found")
+
+    return Game(results[0])
+
 def get_combatant_data(*combatant_ids):
     combatant_results = execute_select_query(
         """

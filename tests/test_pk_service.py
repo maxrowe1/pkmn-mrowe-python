@@ -4,7 +4,9 @@ from classes.Enums import Type, Category
 from db_connect import Pokemon, Move, BaseStats, delete_combatants, create_combatants, save_combatant_stats, \
     get_combatant_stats
 from pk_service import generate_combatant, generate_combatants, \
-    use_move_on_pokemon, Stat, PokemonCombatant
+    use_move_on_pokemon, Stat, PokemonCombatant, new_game, get_last_game
+from redis_connect import is_redis_running
+
 
 class TestClass:
     def __init__(self, name):
@@ -77,10 +79,22 @@ def test_generate_combatants():
     assert len([move for move in results[1].moves if move.name == 'Scratch']) == 0
     assert len([move for move in results[1].moves if move.name == 'Tackle']) == 1
 
+
 def load_game():
     # TODO: Get game data when new game is made, then data when the game is loaded from db. They should match
     pass
 
+def test_get_last_game():
+    game1 = new_game({0:1,1:2})
+    game2 = new_game({0:2,1:1})
+
+    last_game = get_last_game()
+
+    get_pokemon = lambda x: last_game.pokemon[x].pokemon_id if not is_redis_running() else last_game.pokemon[f"{x}"]["pokemon_id"]
+
+    assert last_game.id == game2.id
+    assert get_pokemon(0) == 2
+    assert get_pokemon(1) == 1
 
 def test_get_current_stat(setup_combatants):
     pokemon_a, x = setup_combatants
