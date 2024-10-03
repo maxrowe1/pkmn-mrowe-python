@@ -1,22 +1,52 @@
+import json
+import threading
+from types import SimpleNamespace
+
+from confluent_kafka import Consumer, KafkaError
 from flask import Flask
 from flask_cors import CORS
 
-from db_connect import get_all_pokemon, Pokemon
+from classes.GameComplete import GameComplete
+from db_connect import get_all_pokemon
 from pk_service import generate_combatant, get_game, new_game, get_last_game
-from classes.Enums import Type
 
 app = Flask(__name__)
 CORS(app)
 
-player = Pokemon({ "id": 0, "name":'', "type1":Type.NORMAL, "type2":None})
+# Kafka consumer configuration
+conf = {
+    'bootstrap.servers': 'localhost:9092',  # Kafka broker address
+    'group.id': 'my-group',                   # Consumer group ID
+    'auto.offset.reset': 'earliest'           # Start reading from the earliest message
+}
 
-@app.route('/books/<player_id>', methods=['GET'])
-def get_books(player_id):
-    players = get_all_pokemon()
-    global player
-    print(f"Replace {player.id} with {player_id}")
-    player = players[int(player_id)]
-    return player
+# Create a Kafka consumer instance
+consumer = Consumer(conf)
+
+# Global variable to store consumed messages
+messages = []
+
+# Function to consume messages from Kafka
+def consume_messages():
+    consumer.subscribe(['pokemon_moves'])  # Replace 'test' with your topic name
+    while True:
+        msg = consumer.poll(1.0)  # Timeout of 1 second
+        if msg is None:
+            continue
+        if msg.error():
+            if msg.error().code() == KafkaError._PARTITION_EOF:
+                continue
+            else:
+                print(f'Error while consuming message: {msg.error()}')
+                continue
+
+        # Store the message
+        json_message = json.loads(msg.value().decode('utf-8'))
+        data = GameComplete(**json_message)
+        print(data)
+
+# Start the Kafka consumer in a separate thread
+threading.Thread(target=consume_messages, daemon=True).start()
 
 @app.route('/pokemon', methods=['GET'])
 def get_all_pokemon():

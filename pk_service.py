@@ -10,7 +10,6 @@ from classes.PokemonCombatant import PokemonCombatant
 from db_connect import get_pokemon_stats, get_pokemon_moves, create_combatants, get_game_data, get_combatant_data, \
     save_game, get_last_game_saved
 from redis_connect import get_data_in_redis
-from utils import get_player_or_enemy_id
 
 
 def generate_combatant(player_or_enemy_id, pokemon_id):
@@ -24,10 +23,9 @@ def generate_combatant(player_or_enemy_id, pokemon_id):
     return combatant
 
 def generate_combatants(combatant_id_dict):
-    combatants = {}
+    combatants = []
     for player_or_enemy_id, pokemon_id in combatant_id_dict.items():
-        combatants[player_or_enemy_id] = generate_combatant(player_or_enemy_id, pokemon_id)
-    combatants = {get_player_or_enemy_id(x): x for x in combatants.values()}
+        combatants.append(generate_combatant(player_or_enemy_id, pokemon_id))
     return combatants
 
 def get_combatants(game: Game):
@@ -36,7 +34,7 @@ def get_combatants(game: Game):
 def get_game(game_id):
     game = get_data_in_redis(game_id)
     if game is not None:
-        combatants = game["pokemon"]
+        combatants = [PokemonCombatant(**x) for x in game["pokemon"].values()]
     else:
         game = get_game_data(game_id)
         combatants = get_combatants(game)

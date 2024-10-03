@@ -1,0 +1,26 @@
+Running Redis
+* In command terminal, navigate to directory of redis install
+  - `E:\Program Files\Redis`
+* Start the redis server
+  - `redis-server.exe redis.windows.conf`
+* Access Redis CLI
+  - `redis-cli.exe`
+  - In redis CLI, enter `PING` and expect back `PONG`
+* Flush redis data
+  - `redis-cli.exe flushall`
+
+Running kafka
+* Run zookeeper
+  - From `E:\Program Files\apache-zookeeper-3.8.4-bin\bin`
+  - Enter command `zkServer.cmd`
+* Using a kafka server
+  - Currently using the topic name `pokemon_moves`
+  - From `E:\kafka\bin\windows`
+  - Starting the server
+    - Enter command `kafka-server-start.bat ..\..\config\server.properties`
+  - Create the topic if it does not exist
+    - Check if it exists: `kafka-topics.bat --describe --topic pokemon_moves --bootstrap-server localhost:9092`
+    - If it does not, enter command `kafka-topics.bat --create --topic pokemon_moves --bootstrap-server localhost:9092`
+  - Create producer to send to topic
+    - `kafka-console-producer.bat --topic pokemon_moves --bootstrap-server localhost:9092`
+    - You can send things manually from this command window

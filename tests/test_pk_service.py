@@ -5,7 +5,6 @@ from db_connect import Pokemon, Move, BaseStats, delete_combatants, create_comba
     get_combatant_stats
 from pk_service import generate_combatant, generate_combatants, \
     use_move_on_pokemon, Stat, PokemonCombatant, new_game, get_last_game
-from redis_connect import is_redis_running
 
 
 class TestClass:
@@ -14,8 +13,8 @@ class TestClass:
 
 @pytest.fixture
 def setup_combatants():
-    pokemon1 = Pokemon({"id":1, "name":'BeepBop', "type1":Type.NORMAL, "type2":None})
-    pokemon2 = Pokemon({"id":2, "name":'Zorp', "type1":Type.NORMAL, "type2":None})
+    pokemon1 = Pokemon(1, 'BeepBop', Type.NORMAL, None)
+    pokemon2 = Pokemon(2, 'Zorp', Type.NORMAL, None)
     stats1 = BaseStats({
         "hp_min": 200,
         "hp_max": 200,
@@ -56,8 +55,8 @@ def setup_combatants():
 
 def test_generate_combatant():
     result1 = generate_combatant(0, 1)
-    assert result1.pokemon_id == 1
-    assert result1.name == 'Charmander'
+    assert result1.pokemon.id == 1
+    assert result1.pokemon.name == 'Charmander'
     assert 98 <= result1.stats[Stat.ATTACK].base_stat <= 223
     assert result1.hp_max == result1.hp_max
     assert len(result1.moves) == 2
@@ -72,8 +71,8 @@ def test_generate_combatant():
 
 def test_generate_combatants():
     results = generate_combatants({0: 1, 1: 2})
-    assert results[0].name == 'Charmander'
-    assert results[1].name == 'Squirtle'
+    assert results[0].pokemon.name == 'Charmander'
+    assert results[1].pokemon.name == 'Squirtle'
     assert len([move for move in results[0].moves if move.name == 'Scratch']) == 1
     assert len([move for move in results[0].moves if move.name == 'Tackle']) == 0
     assert len([move for move in results[1].moves if move.name == 'Scratch']) == 0
@@ -90,7 +89,7 @@ def test_get_last_game():
 
     last_game = get_last_game()
 
-    get_pokemon = lambda x: last_game.pokemon[x].pokemon_id if not is_redis_running() else last_game.pokemon[f"{x}"]["pokemon_id"]
+    get_pokemon = lambda x: last_game.pokemon[x].pokemon.id
 
     assert last_game.id == game2.id
     assert get_pokemon(0) == 2
@@ -131,7 +130,7 @@ def test_save_current_stat(setup_combatants):
 
 def test_use_move_on_pokemon_status(setup_combatants):
     pokemon_combatant, x = setup_combatants
-    move = Move({
+    move = Move(**{
         "id":0,
         "name":'Status Move',
         "move_type":Type.NORMAL,
@@ -165,7 +164,7 @@ def test_use_move_on_pokemon_status(setup_combatants):
 
 def test_use_move_on_pokemon_not_status(setup_combatants):
     attacker, defender = setup_combatants
-    move = Move({
+    move = Move(**{
         "id":0,
         "name":'Physical Move',
         "move_type":Type.FIRE,

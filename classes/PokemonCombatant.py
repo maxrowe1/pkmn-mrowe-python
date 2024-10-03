@@ -12,16 +12,14 @@ def get_stage(stage):
     use_stage = stage if abs(stage) <= 6 else sign(stage) * 6
     return use_stage
 
-class PokemonCombatant(Pokemon):
-    def __init__(self, pokemon: Pokemon, stats, moves, combatant_id = 0):
-        super().__init__(pokemon)
-
-        self.id = combatant_id
-        self.pokemon_id = pokemon.id
-        self.moves = moves
+class PokemonCombatant:
+    def __init__(self, pokemon, stats, moves, **kwargs):
+        self.id = kwargs["id"] if len(kwargs) > 1 else 0
+        self.pokemon = pokemon if isinstance(pokemon, Pokemon) else Pokemon(**pokemon)
+        self.moves = [x if isinstance(x, Move) else Move(**x) for x in moves]
         self.is_player = False
 
-        self.types = [pokemon.type1, pokemon.type2]
+        self.types = [self.pokemon.type1, self.pokemon.type2]
         self.types.remove(None)
 
         if isinstance(stats, BaseStats):
@@ -36,10 +34,10 @@ class PokemonCombatant(Pokemon):
             self.hp_max = get_random_stat(stats.hp_min, stats.hp_max).base_stat
             self.hp_current = self.hp_max
         else:
-            self.stats = stats["stat_list"]
-            self.hp_max = stats["hp_max"]
-            self.hp_current = stats["hp_current"]
-            self.is_player = stats["is_player"]
+            self.stats = stats
+            self.hp_max = kwargs["hp_max"]
+            self.hp_current = kwargs["hp_current"]
+            self.is_player = kwargs["is_player"]
 
     def modify_stage(self, move: Move):
         stat_data = self.stats[move.stat]
@@ -47,6 +45,7 @@ class PokemonCombatant(Pokemon):
         stat_data.stage = get_stage(stat_data.stage)
 
     def to_json(self):
+        self.pokemon = self.pokemon.__dict__
         self.moves = [x.__dict__ for x in self.moves]
         self.stats = jsonify_dict(self.stats)
         return self.__dict__

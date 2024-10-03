@@ -1,9 +1,6 @@
 class Pokemon:
-    def __init__(self, pokemon_dict):
-        if isinstance(pokemon_dict, Pokemon):
-            self.__dict__ = pokemon_dict.__dict__.copy()
-        else:
-            self.id = pokemon_dict["id"]
-            self.name = pokemon_dict["name"]
-            self.type1 = pokemon_dict["type1"]
-            self.type2 = pokemon_dict["type2"]
+    def __init__(self, id, name, type1, type2, **kwargs):
+        self.id = id
+        self.name = name
+        self.type1 = type1
+        self.type2 = type2

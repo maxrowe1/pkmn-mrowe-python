@@ -13,7 +13,6 @@ from classes.Move import Move
 from classes.Pokemon import Pokemon
 from classes.PokemonCombatant import PokemonCombatant, StatData
 from classes.Game import Game
-from utils import get_player_or_enemy_id
 
 
 def connect_to_database():
@@ -51,7 +50,7 @@ def execute_commit_query(query, values):
 
 def get_all_pokemon():
     results = execute_select_query('SELECT * FROM POKEMON')
-    return [Pokemon(dict(x)) for x in results]
+    return [Pokemon(**x) for x in results]
 
 def get_pokemon(*pokemon_ids):
     results = execute_select_query(
@@ -61,7 +60,7 @@ def get_pokemon(*pokemon_ids):
         WHERE ID IN {0};
         """.format(convert_int_tuple(pokemon_ids))
     )
-    return [Pokemon(x) for x in results]
+    return [Pokemon(**x) for x in results]
 
 def get_pokemon_moves(*ids):
     results = execute_select_query(
@@ -75,7 +74,7 @@ def get_pokemon_moves(*ids):
     for result in results:
         current_list = pokemon_moves[result["pokemon_id"]]
         if len(current_list) < 4:
-            current_list.append(Move(result))
+            current_list.append(Move(**result))
     return pokemon_moves
 
 def get_pokemon_stats(*ids):
@@ -86,7 +85,7 @@ def get_pokemon_stats(*ids):
                 WHERE p.ID in ({0});'''.format(convert_int_tuple(ids))
         )
     for result in results:
-        pokemon = Pokemon(result)
+        pokemon = Pokemon(**result)
         pokemon_stats_map[pokemon.id] = {
             "pokemon": pokemon,
             "stats": BaseStats(result)
@@ -105,7 +104,7 @@ def get_game_data(game_id):
     if len(results) <= 0:
         raise Exception("Group ID was not found")
 
-    return Game(results[0])
+    return Game(**results[0])
 
 def get_last_game_saved():
     results = execute_select_query(
@@ -120,7 +119,7 @@ def get_last_game_saved():
     if len(results) <= 0:
         raise Exception("No recent games found")
 
-    return Game(results[0])
+    return Game(**results[0])
 
 def get_combatant_data(*combatant_ids):
     combatant_results = execute_select_query(
@@ -139,25 +138,28 @@ def get_combatant_data(*combatant_ids):
         combatant_stats = stat_changes_list[combatant_id]
         return combatant_stats[stat] if stat in combatant_stats.keys() else StatData(combatant_result[stat.value.lower()])
 
-    combatants = {}
+    combatants = []
     for combatant_result in combatant_results:
         combatant_id = combatant_result["id"]
         pokemon = [x for x in pokemon_list if x.id == combatant_result["pokemon_id"]][0]
         moves = moves_list[combatant_id]
         stats = {
-            "hp_current": combatant_result["hp_current"],
-            "hp_max": combatant_result["hp_max"],
-            "is_player": combatant_result["is_player"],
-            "stat_list": {
-                Stat.ATTACK: get_stat(Stat.ATTACK),
-                Stat.DEFENSE: get_stat(Stat.DEFENSE),
-                Stat.SP_ATTACK: get_stat(Stat.SP_ATTACK),
-                Stat.SP_DEFENSE: get_stat(Stat.SP_DEFENSE),
-                Stat.SPEED: get_stat(Stat.SPEED)
-            }
+            Stat.ATTACK: get_stat(Stat.ATTACK),
+            Stat.DEFENSE: get_stat(Stat.DEFENSE),
+            Stat.SP_ATTACK: get_stat(Stat.SP_ATTACK),
+            Stat.SP_DEFENSE: get_stat(Stat.SP_DEFENSE),
+            Stat.SPEED: get_stat(Stat.SPEED)
         }
-        combatant = PokemonCombatant(pokemon, stats, moves, combatant_id)
-        combatants[get_player_or_enemy_id(combatant)] = combatant
+        combatant = PokemonCombatant(
+            pokemon,
+            stats,
+            moves,
+            id=combatant_id,
+            hp_max=combatant_result["hp_max"],
+            hp_current=combatant_result["hp_current"],
+            is_player=combatant_result["is_player"]
+        )
+        combatants.append(combatant)
     return combatants
 
 def get_combatant_moves(*combatant_ids):
@@ -175,7 +177,7 @@ def get_combatant_moves(*combatant_ids):
     )
     combatant_moves_dict = {}
     for combatant_id in combatant_ids:
-        combatant_moves_dict[combatant_id] = [Move(x) for x in results if x["combatant_id"] == combatant_id]
+        combatant_moves_dict[combatant_id] = [Move(**x) for x in results if x["combatant_id"] == combatant_id]
     return combatant_moves_dict
 
 def get_combatant_stats(*combatant_ids):
@@ -205,10 +207,16 @@ def get_combatant_stats(*combatant_ids):
     return combatant_stats_dict
 
 def create_combatants(*combatants: PokemonCombatant):
-    remove_vars = ["id","name","type1","type2","moves","types","stats"]
+    remove_vars = ["id","pokemon","moves","types","stats"]
     add_vars = [x.value for x in combatants[0].stats]
+    add_vars.append("pokemon_id")
 
-    append_stats = lambda values, pc, column: values.append(pc.stats[Stat[column]].base_stat)
+    def append_stats(values, pc, column):
+        values.append(pc.stats[Stat[column]].base_stat
+                      if column in [x.value for x in Stat]
+                      else pc.pokemon.id if column == "pokemon_id"
+                      else pc.pokemon.__dict__[column]
+                      )
 
     new_combatants = execute_insert_query("combatants", combatants, add_vars, remove_vars, append_stats)
 
@@ -243,7 +251,7 @@ def save_combatant_moves(combatant_id, moves):
     updated_moves = []
     for move in moves:
         new_combatant_move = next(x for x in new_combatant_moves if x["move_id"] == move.id)
-        move.set_combatant_data(new_combatant_move)
+        move.set_combatant_data(**new_combatant_move)
         updated_moves.append(move)
 
     return updated_moves
@@ -291,7 +299,7 @@ def execute_insert_query(table_name, insert_list, add_vars, remove_vars, append_
                 if append_extra is not None:
                     append_extra(values, insert_object, column)
 
-        assert len(columns) == len(values)
+        assert len(columns) == len(values), f"Columns({len(columns)} != Values({len(values)})"
         values_list.append(tuple(values))
 
 
@@ -314,7 +322,7 @@ def save_game(p_combatant_id, e_combatant_id):
         VALUES (%s,%s)
         RETURNING *""",
         [(p_combatant_id, e_combatant_id)])[0]
-    return Game(result)
+    return Game(**result)
 
 def delete_combatants(*combatant_ids):
     results = execute_commit_query("""DELETE FROM combatants WHERE id = %s;""", [(x,) for x in combatant_ids])
