@@ -47,6 +47,7 @@ def get_last_game():
 
 def new_game(combatant_id_dict):
     combatants = generate_combatants(combatant_id_dict)
+    combatants.sort(key=lambda e: e is False)
     game = save_game(combatants[0].id, combatants[1].id)
     return GameComplete(game.id, combatants)
 

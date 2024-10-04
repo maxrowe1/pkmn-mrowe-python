@@ -1,3 +1,4 @@
+import atexit
 import logging
 import threading
 import traceback
@@ -25,11 +26,16 @@ conf = {
 consumer = Consumer(conf)
 consumer.subscribe([kafka_topic])
 
+def cleanup():
+    print("Closing the stream")
+    consumer.close()
+atexit.register(cleanup)
+
 # Function to consume messages from Kafka
 def consume_messages():
     msg = None
-    try:
-        while True:
+    while True:
+        try:
             msg = consumer.poll(1.0)  # Timeout of 1 second
             if msg is None:
                 continue
@@ -42,9 +48,9 @@ def consume_messages():
 
             # Store the message
             message = msg.value().decode('utf-8')
-            print(get_game_from_json(message))
-    except (JSONDecodeError, TypeError, ValueError) as e:
-        logging.error(f"Failed to read kafka message:\n{msg}\n{str(e)}\n{traceback.format_exc()}")
+            print(get_game_from_json(message).to_json())
+        except (JSONDecodeError, TypeError, ValueError) as e:
+            logging.error(f"Failed to read kafka message:\n{msg}\n{str(e)}\n{traceback.format_exc()}")
 
 # Start the Kafka consumer in a separate thread
 threading.Thread(target=consume_messages, daemon=True).start()
