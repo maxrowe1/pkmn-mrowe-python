@@ -1,14 +1,15 @@
-import json
+import logging
 import threading
-from types import SimpleNamespace
+import traceback
+from json import JSONDecodeError
 
 from confluent_kafka import Consumer, KafkaError
 from flask import Flask
 from flask_cors import CORS
 
-from classes.GameComplete import GameComplete
-from db_connect import get_all_pokemon
-from pk_service import generate_combatant, get_game, new_game, get_last_game
+from src.repositories.db_connect import get_all_pokemon
+from src.services.pk_service import generate_combatant, get_game, new_game, get_last_game, get_game_from_json
+from src.utils.constants import kafka_topic
 
 app = Flask(__name__)
 CORS(app)
@@ -22,28 +23,28 @@ conf = {
 
 # Create a Kafka consumer instance
 consumer = Consumer(conf)
-
-# Global variable to store consumed messages
-messages = []
+consumer.subscribe([kafka_topic])
 
 # Function to consume messages from Kafka
 def consume_messages():
-    consumer.subscribe(['pokemon_moves'])  # Replace 'test' with your topic name
-    while True:
-        msg = consumer.poll(1.0)  # Timeout of 1 second
-        if msg is None:
-            continue
-        if msg.error():
-            if msg.error().code() == KafkaError._PARTITION_EOF:
+    msg = None
+    try:
+        while True:
+            msg = consumer.poll(1.0)  # Timeout of 1 second
+            if msg is None:
                 continue
-            else:
-                print(f'Error while consuming message: {msg.error()}')
-                continue
+            if msg.error():
+                if msg.error().code() == KafkaError._PARTITION_EOF:
+                    continue
+                else:
+                    print(f'Error while consuming message: {msg.error()}')
+                    continue
 
-        # Store the message
-        json_message = json.loads(msg.value().decode('utf-8'))
-        data = GameComplete(**json_message)
-        print(data)
+            # Store the message
+            message = msg.value().decode('utf-8')
+            print(get_game_from_json(message))
+    except (JSONDecodeError, TypeError, ValueError) as e:
+        logging.error(f"Failed to read kafka message:\n{msg}\n{str(e)}\n{traceback.format_exc()}")
 
 # Start the Kafka consumer in a separate thread
 threading.Thread(target=consume_messages, daemon=True).start()

@@ -1,10 +1,10 @@
-from classes.BaseStats import BaseStats
-from classes.Move import Move
-from classes.Pokemon import Pokemon
-from classes.Enums import Stat
+from src.classes.BaseStats import BaseStats
+from src.classes.Move import Move
+from src.classes.Pokemon import Pokemon
+from src.classes.Enums import Stat
 import random
 
-from utils import jsonify_dict
+from src.utils.utils import jsonify_dict
 
 
 def get_stage(stage):

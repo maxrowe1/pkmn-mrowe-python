@@ -1,0 +1,1 @@
+kafka_topic = "pokemon_moves"

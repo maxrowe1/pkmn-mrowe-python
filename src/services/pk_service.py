@@ -1,15 +1,16 @@
 import copy
 import random
+import json
 
-from classes.Enums import Category, Stat
-from classes.Game import Game
-from classes.GameComplete import GameComplete
-from classes.Move import Move
+from src.classes.Enums import Category, Stat
+from src.classes.Game import Game
+from src.classes.GameComplete import GameComplete
+from src.classes.Move import Move
 
-from classes.PokemonCombatant import PokemonCombatant
-from db_connect import get_pokemon_stats, get_pokemon_moves, create_combatants, get_game_data, get_combatant_data, \
+from src.classes.PokemonCombatant import PokemonCombatant
+from src.repositories.db_connect import get_pokemon_stats, get_pokemon_moves, create_combatants, get_game_data, get_combatant_data, \
     save_game, get_last_game_saved
-from redis_connect import get_data_in_redis
+from src.repositories.redis_connect import get_data_in_redis
 
 
 def generate_combatant(player_or_enemy_id, pokemon_id):
@@ -45,9 +46,13 @@ def get_last_game():
     return get_game(game.id)
 
 def new_game(combatant_id_dict):
-    combatants_map = generate_combatants(combatant_id_dict)
-    game = save_game(combatants_map[0].id, combatants_map[1].id)
-    return GameComplete(game.id, combatants_map)
+    combatants = generate_combatants(combatant_id_dict)
+    game = save_game(combatants[0].id, combatants[1].id)
+    return GameComplete(game.id, combatants)
+
+def get_game_from_json(message):
+    json_message = json.loads(message)
+    return GameComplete(**dict(json_message))
 
 def use_move_on_pokemon(move: Move, target: PokemonCombatant, attacker: PokemonCombatant):
     if move.accuracy < 100:

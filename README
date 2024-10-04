@@ -24,3 +24,7 @@ Running kafka
   - Create producer to send to topic
     - `kafka-console-producer.bat --topic pokemon_moves --bootstrap-server localhost:9092`
     - You can send things manually from this command window
+
+Testing endpoints
+  - `Invoke-RestMethod -Method PUT -Uri http://127.0.0.1:5050/battle/0/move/0 -ContentType "application/json" -Body '{"Message":"hello, kafka!"}'
+`

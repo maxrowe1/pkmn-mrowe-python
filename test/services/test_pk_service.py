@@ -1,9 +1,9 @@
 import pytest
 
-from classes.Enums import Type, Category
-from db_connect import Pokemon, Move, BaseStats, delete_combatants, create_combatants, save_combatant_stats, \
+from src.classes.Enums import Type, Category
+from src.repositories.db_connect import Pokemon, Move, BaseStats, delete_combatants, create_combatants, save_combatant_stats, \
     get_combatant_stats
-from pk_service import generate_combatant, generate_combatants, \
+from src.services.pk_service import generate_combatant, generate_combatants, \
     use_move_on_pokemon, Stat, PokemonCombatant, new_game, get_last_game
 
 

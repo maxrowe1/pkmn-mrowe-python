@@ -3,16 +3,16 @@ from collections import defaultdict
 from psycopg2 import ProgrammingError
 from psycopg2.extras import RealDictCursor
 
-from classes.Enums import Stat
+from src.classes.Enums import Stat
 from enum import Enum
 
 import psycopg2
 
-from classes.BaseStats import BaseStats
-from classes.Move import Move
-from classes.Pokemon import Pokemon
-from classes.PokemonCombatant import PokemonCombatant, StatData
-from classes.Game import Game
+from src.classes.BaseStats import BaseStats
+from src.classes.Move import Move
+from src.classes.Pokemon import Pokemon
+from src.classes.PokemonCombatant import PokemonCombatant, StatData
+from src.classes.Game import Game
 
 
 def connect_to_database():
