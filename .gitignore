@@ -7,3 +7,6 @@ temp/
 .idea/
 .pytest_cache/
 **/__pycache__/
+.vscode/
+.coverage
+.env

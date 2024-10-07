@@ -56,7 +56,7 @@ def consume_messages():
 threading.Thread(target=consume_messages, daemon=True).start()
 
 @app.route('/pokemon', methods=['GET'])
-def get_all_pokemon():
+def get_all_pokemon_():
     pokemon = get_all_pokemon()
     return [x.__dict__ for x in pokemon]
 

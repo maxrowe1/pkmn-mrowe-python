@@ -6,11 +6,6 @@ from src.repositories.db_connect import Pokemon, Move, BaseStats, delete_combata
 from src.services.pk_service import generate_combatant, generate_combatants, \
     use_move_on_pokemon, Stat, PokemonCombatant, new_game, get_last_game
 
-
-class TestClass:
-    def __init__(self, name):
-        self.name = name
-
 @pytest.fixture
 def setup_combatants():
     pokemon1 = Pokemon(1, 'BeepBop', Type.NORMAL, None)
