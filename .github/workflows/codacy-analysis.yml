@@ -14,6 +14,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+          pip install coverage
           pip install codacy-coverage
       - name: Run tests and generate coverage
         run: |
@@ -21,6 +22,6 @@ jobs:
           coverage xml
       - name: Upload coverage to Codacy
         run: |
-          codacy-coverage -r coverage.xml
+          python-codacy-coverage -r coverage.xml
         env:
           CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
