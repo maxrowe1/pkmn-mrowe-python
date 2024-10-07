@@ -10,3 +10,4 @@ temp/
 .vscode/
 .coverage
 .env
+/coverage.xml

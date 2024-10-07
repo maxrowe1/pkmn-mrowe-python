@@ -1,0 +1,26 @@
+name: Codacy Analysis CLI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install codacy-coverage
+      - name: Run tests and generate coverage
+        run: |
+          coverage run -m pytest
+          coverage xml
+      - name: Upload coverage to Codacy
+        run: |
+          codacy-coverage -r coverage.xml
+        env:
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
