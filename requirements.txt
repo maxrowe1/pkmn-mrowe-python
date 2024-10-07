@@ -1,2 +1,7 @@
 Flask
 confluent-kafka
+flask_cors
+json
+psycopg2
+enum
+collections
