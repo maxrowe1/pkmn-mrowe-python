@@ -14,6 +14,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+          pip install -U pytest
           pip install coverage
           pip install codacy-coverage
       - name: Run tests and generate coverage
