@@ -30,7 +30,7 @@ def manage_data_in_redis(redis_func):
     :return:
     """
     try:
-        if not is_local_testing:
+        if not is_local_testing():
             # TODO: Redis on GitHub
             return
 

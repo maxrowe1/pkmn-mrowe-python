@@ -137,6 +137,22 @@ def test_get_last_game():
             [get_mock_pokemon(1)],
             [get_mock_move_response(1, 1), get_mock_move_response(0, 1)],
             [{"id": 2, "p_combatant_id": 3, "e_combatant_id": 4}],
+            [{"id": 2, "p_combatant_id": 3, "e_combatant_id": 4}],
+            [get_mock_combatant(3, True, 2),get_mock_combatant(4, False, 1)],
+            [get_mock_pokemon(2), get_mock_pokemon(1)],
+            [get_mock_move_response(1, 1, 4),get_mock_move_response(0, 1),get_mock_move_response(2, 2),get_mock_move_response(0, 2, 3)],
+            [
+                {"combatant_id": 3, "attack": 0, "base_stat": 0, "stage": -1, "stat": "ATTACK"},
+                {"combatant_id": 3, "attack": 0, "base_stat": 0, "stage": -1, "stat": "DEFENSE"},
+                {"combatant_id": 3, "attack": 0, "base_stat": 0, "stage": -1, "stat": "SP_ATTACK"},
+                {"combatant_id": 3, "attack": 0, "base_stat": 0, "stage": -1, "stat": "SP_DEFENSE"},
+                {"combatant_id": 3, "attack": 0, "base_stat": 0, "stage": -1, "stat": "SPEED"},
+                {"combatant_id": 4, "attack": 0, "base_stat": 0, "stage": -1, "stat": "ATTACK"},
+                {"combatant_id": 4, "attack": 0, "base_stat": 0, "stage": -1, "stat": "DEFENSE"},
+                {"combatant_id": 4, "attack": 0, "base_stat": 0, "stage": -1, "stat": "SP_ATTACK"},
+                {"combatant_id": 4, "attack": 0, "base_stat": 0, "stage": -1, "stat": "SP_DEFENSE"},
+                {"combatant_id": 4, "attack": 0, "base_stat": 0, "stage": -1, "stat": "SPEED"},
+            ]
         ],
         [
             get_mock_combatant(1, True),
@@ -337,9 +353,10 @@ def get_mock_pokemon(pokemon_id: int):
         "speed_max": 20
     }
 
-def get_mock_move_response(move_id: int, pokemon_id = 0):
+def get_mock_move_response(move_id: int, pokemon_id, combatant_id = 0):
     return {
         "pokemon_id": pokemon_id,
+        "combatant_id":combatant_id if combatant_id > 0 else pokemon_id,
         "id": move_id,
         "move_id": move_id,
         "name": 'Status Move' if move_id == 0 else 'Scratch' if move_id == 1 else 'Tackle',
@@ -348,15 +365,18 @@ def get_mock_move_response(move_id: int, pokemon_id = 0):
         "move_power": None,
         "accuracy": 100,
         "base_pp": 5,
+        "pp_current": 5,
         "stat": "ATTACK",
         "target_self": True,
         "stage_effect": 2,
-        "can_crit": False
+        "can_crit": False,
+        "move_number":1
     }
 
-def get_mock_combatant(combatant_id: int, is_player):
+def get_mock_combatant(combatant_id: int, is_player, pokemon_id = 0):
     return {
         "id": combatant_id,
+        "pokemon_id":pokemon_id if pokemon_id > 0 else combatant_id,
         "pokemon": {
             "id": combatant_id,
             "name": 'Charmander',
@@ -366,7 +386,7 @@ def get_mock_combatant(combatant_id: int, is_player):
         "hp_max": 50,
         "hp_current": 50,
         "is_player": is_player,
-        "moves": [get_mock_move_response(combatant_id)],
+        "moves": [get_mock_move_response(combatant_id, combatant_id)],
         "stats": {
         }
     }
