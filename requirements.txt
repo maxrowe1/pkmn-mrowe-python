@@ -3,3 +3,5 @@ confluent-kafka
 flask_cors
 psycopg2
 redis
+dotenv
+pytest-mock

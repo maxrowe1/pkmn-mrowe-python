@@ -1,5 +1,7 @@
+import os
 from collections import defaultdict
 
+from flask.cli import load_dotenv
 from psycopg2 import ProgrammingError
 from psycopg2.extras import RealDictCursor
 
@@ -14,11 +16,12 @@ from src.classes.Pokemon import Pokemon
 from src.classes.PokemonCombatant import PokemonCombatant, StatData
 from src.classes.Game import Game
 
+load_dotenv() # Load environment vars
 
 def connect_to_database():
     conn = psycopg2.connect(database="postgres",
                             user="postgres",
-                            host='localhost',
+                            host=os.getenv('DB_HOST'),
                             password="admin",
                             port=5432)
     cursor = conn.cursor(cursor_factory=RealDictCursor)

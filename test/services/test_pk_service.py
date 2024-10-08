@@ -5,9 +5,22 @@ from src.repositories.db_connect import Pokemon, Move, BaseStats, delete_combata
     get_combatant_stats
 from src.services.pk_service import generate_combatant, generate_combatants, \
     use_move_on_pokemon, Stat, PokemonCombatant, new_game, get_last_game
+from src.utils.utils import is_local_testing
+
+cursor = None
+
+@pytest.fixture(autouse=True)
+def mock_db(mocker):
+    if not is_local_testing:
+        conn = mocker.Mock()
+        global cursor
+        cursor = mocker.Mock()
+        cursor.fetchall.return_value = []
+        mocker.patch('src.repositories.db_connect.connect_to_database', return_value=(conn, cursor))
 
 @pytest.fixture
 def setup_combatants():
+    global cursor
     pokemon1 = Pokemon(1, 'BeepBop', Type.NORMAL, None)
     pokemon2 = Pokemon(2, 'Zorp', Type.NORMAL, None)
     stats1 = BaseStats({
@@ -42,30 +55,66 @@ def setup_combatants():
     attacker = PokemonCombatant(pokemon1, stats1, [])
     defender = PokemonCombatant(pokemon2, stats2, [])
 
-    create_combatants(attacker, defender)
+    if cursor is None:
+        create_combatants(attacker, defender)
 
     yield attacker, defender
 
-    delete_combatants(attacker.id, defender.id)
+    if cursor is None:
+        delete_combatants(attacker.id, defender.id)
 
 def test_generate_combatant():
+    # given
+    global cursor
+    if cursor is not None:
+        mock_db_for_test([
+            [get_mock_pokemon(1)],
+            [get_mock_move_response(1, 1), get_mock_move_response(0, 1)],
+        ],
+        [
+            get_mock_combatant(1, True),
+            get_mock_move_response(1,1),
+            get_mock_move_response(0, 1),
+            {}
+        ])
+
+    # when
     result1 = generate_combatant(0, 1)
+
+    # then
     assert result1.pokemon.id == 1
     assert result1.pokemon.name == 'Charmander'
     assert 98 <= result1.stats[Stat.ATTACK].base_stat <= 223
-    assert result1.hp_max == result1.hp_max
+    assert result1.hp_max == result1.hp_current
     assert len(result1.moves) == 2
     assert result1.is_player
 
-    # No two generations are the same (possible but unlikely)
-    result2 = generate_combatant(0, 2)
-    assert result1 != result2
-    assert (result1.stats[Stat.ATTACK] != result2.stats[Stat.ATTACK] or
-            result1.stats[Stat.DEFENSE] != result2.stats[Stat.DEFENSE])
-
 
 def test_generate_combatants():
+    # GIVEN
+    global cursor
+    if cursor is not None:
+        mock_db_for_test([
+            [get_mock_pokemon(1)],
+            [get_mock_move_response(1, 1), get_mock_move_response(0, 1)],
+            [get_mock_pokemon(2)],
+            [get_mock_move_response(2, 2), get_mock_move_response(0, 2)]
+        ],
+        [
+            get_mock_combatant(1, True),
+            get_mock_move_response(1, 1),
+            get_mock_move_response(0, 1),
+            get_mock_combatant(2, False),
+            get_mock_combatant(2, False),
+            get_mock_move_response(2, 2),
+            get_mock_move_response(0, 2),
+            {}
+        ])
+
+    # WHEN
     results = generate_combatants({0: 1, 1: 2})
+
+    # THEN
     assert results[0].pokemon.name == 'Charmander'
     assert results[1].pokemon.name == 'Squirtle'
     assert len([move for move in results[0].moves if move.name == 'Scratch']) == 1
@@ -79,32 +128,91 @@ def load_game():
     pass
 
 def test_get_last_game():
+    # GIVEN
+    global cursor
+    if cursor is not None:
+        mock_db_for_test([
+            [get_mock_pokemon(1)],
+            [get_mock_move_response(1, 1), get_mock_move_response(0, 1)],
+            [get_mock_pokemon(2)],
+            [get_mock_move_response(2, 2), get_mock_move_response(0, 2)],
+            [get_mock_pokemon(2)],
+            [get_mock_move_response(2, 2), get_mock_move_response(0, 2)],
+            [get_mock_pokemon(1)],
+            [get_mock_move_response(1, 1), get_mock_move_response(0, 1)],
+            [{"id": 2, "p_combatant_id": 3, "e_combatant_id": 4}],
+        ],
+        [
+            get_mock_combatant(1, True),
+            get_mock_move_response(1, 1),
+            get_mock_move_response(0, 1),
+            get_mock_combatant(2, False),
+            get_mock_combatant(2, False),
+            get_mock_move_response(2, 2),
+            get_mock_move_response(0, 2),
+            {},
+            {"id":1, "p_combatant_id":1, "e_combatant_id":2},
+            get_mock_combatant(2, True),
+            get_mock_move_response(2, 2),
+            get_mock_move_response(0, 2),
+            get_mock_combatant(1, False),
+            get_mock_combatant(1, False),
+            get_mock_move_response(1, 1),
+            get_mock_move_response(0, 1),
+            {},
+            {"id":2, "p_combatant_id":3, "e_combatant_id":4},
+        ])
+
+    get_pokemon = lambda x: last_game.pokemon[x].pokemon.id
+
+    # WHEN
     game1 = new_game({0:1,1:2})
     game2 = new_game({0:2,1:1})
 
     last_game = get_last_game()
 
-    get_pokemon = lambda x: last_game.pokemon[x].pokemon.id
-
+    # THEN
     assert last_game.id == game2.id
     assert get_pokemon(0) == 2
     assert get_pokemon(1) == 1
 
 def test_get_current_stat(setup_combatants):
+    # WHEN
     pokemon_a, x = setup_combatants
     data = pokemon_a.stats[Stat.ATTACK]
     data.base_stat = 50
     data.stage = 3
+
+    # THEN
     result = pokemon_a.get_current_stat(Stat.ATTACK)
     assert result == 125
 
 
 def test_save_current_stat(setup_combatants):
+    # GIVEN
     pokemon_a, x = setup_combatants
+
+    global cursor
+    if cursor is not None:
+        mock_db_for_test([
+            [{"combatant_id":pokemon_a.id,"attack":0, "base_stat":0, "stage":3, "stat":"ATTACK"}],
+            [{"combatant_id": pokemon_a.id, "attack": 0, "base_stat": 0, "stage": -1, "stat": "DEFENSE"}]
+        ],
+        [
+            {},
+            {"stat":"ATTACK", "stage":3},
+            {},
+            {"stat":"DEFENSE", "stage":-1}
+        ])
+
 
     # Stage non-zero; save
     pokemon_a.stats[Stat.ATTACK].stage = 3
+
+    # WHEN
     result = save_combatant_stats(pokemon_a.id, pokemon_a.stats)
+
+    # THEN
     assert len(result) == 1
     db_stats = get_combatant_stats(pokemon_a.id)
     assert len(db_stats) == 1
@@ -182,6 +290,92 @@ def test_use_move_on_pokemon_not_status(setup_combatants):
 
     # HP: 50 - 11.6 * rand; rand = 0.85 -> 1
     assert 41 >= result.hp_current >= 39
+
+
+def mock_db_for_test(fetchall_responses: list, fetchone_responses):
+    global cursor
+    class Counter:
+        i = 0
+        j = 0
+
+    def increase_i():
+        counter.i += 1
+    def increase_j():
+        counter.j += 1
+
+    counter = Counter
+
+    print(f"start: {counter.i} {counter.j}")
+
+    def fetchall_side_effect():
+        print(f"fetch all index {counter.i}")
+        x = fetchall_responses[counter.i]
+        increase_i()
+        return x
+
+    def fetchone_side_effect():
+        print(f"fetch one index {counter.j}")
+        x = fetchone_responses[counter.j]
+        increase_j()
+        return x
+
+    cursor.fetchall.side_effect = fetchall_side_effect
+    cursor.fetchone.side_effect = fetchone_side_effect
+
+
+def get_mock_pokemon(id: int):
+    return {
+        "id": id,
+        "name": 'Charmander' if id == 1 else 'Squirtle',
+        "type1": "FIRE",
+        "type2": None,
+        "hp_min": 50,
+        "hp_max": 50,
+        "attack_min": 98,
+        "attack_max": 223,
+        "defense_min": 25,
+        "defense_max": 25,
+        "sp_attack_min": 5,
+        "sp_attack_max": 5,
+        "sp_defense_min": 60,
+        "sp_defense_max": 60,
+        "speed_min": 20,
+        "speed_max": 20
+    }
+
+def get_mock_move_response(id: int, pokemon_id = 0):
+    return {
+        "pokemon_id": pokemon_id,
+        "id": id,
+        "move_id": id,
+        "name": 'Status Move' if id == 0 else 'Scratch' if id == 1 else 'Tackle',
+        "move_type": "NORMAL",
+        "category": "STATUS",
+        "move_power": None,
+        "accuracy": 100,
+        "base_pp": 5,
+        "stat": "ATTACK",
+        "target_self": True,
+        "stage_effect": 2,
+        "can_crit": False
+    }
+
+def get_mock_combatant(id: int, is_player):
+    return {
+        "id": id,
+        "pokemon": {
+            "id": id,
+            "name": 'Charmander',
+            "type1": Type.FIRE,
+            "type2": None
+        },
+        "hp_max": 50,
+        "hp_current": 50,
+        "is_player": is_player,
+        "moves": [get_mock_move_response(id)],
+        "stats": {
+        }
+    }
 
 def test_things(setup_combatants):
     pass

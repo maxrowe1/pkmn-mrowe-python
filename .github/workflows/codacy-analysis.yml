@@ -1,6 +1,6 @@
 name: Codacy Analysis CLI
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   build:
@@ -11,6 +11,10 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: '3.x'
+      - name: Set Environment Variables
+        run: |
+          echo "KAFKA_HOST=??"
+          echo "DB_HOST=??"
       - name: Install dependencies
         run: |
           pip install -r requirements.txt

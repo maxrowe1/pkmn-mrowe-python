@@ -1,11 +1,13 @@
 import atexit
 import logging
+import os
 import threading
 import traceback
 from json import JSONDecodeError
 
 from confluent_kafka import Consumer, KafkaError
 from flask import Flask
+from flask.cli import load_dotenv
 from flask_cors import CORS
 
 from src.repositories.db_connect import get_all_pokemon
@@ -15,9 +17,11 @@ from src.utils.constants import kafka_topic
 app = Flask(__name__)
 CORS(app)
 
+load_dotenv() # load environment variables
+
 # Kafka consumer configuration
 conf = {
-    'bootstrap.servers': 'localhost:9092',  # Kafka broker address
+    'bootstrap.servers': os.getenv('KAFKA_HOST'),  # Kafka broker address
     'group.id': 'my-group',                   # Consumer group ID
     'auto.offset.reset': 'earliest'           # Start reading from the earliest message
 }
