@@ -11,7 +11,7 @@ cursor = None
 
 @pytest.fixture(autouse=True)
 def mock_db(mocker):
-    if not is_local_testing:
+    if not is_local_testing():
         conn = mocker.Mock()
         global cursor
         cursor = mocker.Mock()
@@ -20,7 +20,6 @@ def mock_db(mocker):
 
 @pytest.fixture
 def setup_combatants():
-    global cursor
     pokemon1 = Pokemon(1, 'BeepBop', Type.NORMAL, None)
     pokemon2 = Pokemon(2, 'Zorp', Type.NORMAL, None)
     stats1 = BaseStats({
@@ -55,17 +54,16 @@ def setup_combatants():
     attacker = PokemonCombatant(pokemon1, stats1, [])
     defender = PokemonCombatant(pokemon2, stats2, [])
 
-    if cursor is None:
+    if is_local_testing():
         create_combatants(attacker, defender)
 
     yield attacker, defender
 
-    if cursor is None:
+    if is_local_testing():
         delete_combatants(attacker.id, defender.id)
 
 def test_generate_combatant():
     # given
-    global cursor
     if cursor is not None:
         mock_db_for_test([
             [get_mock_pokemon(1)],
@@ -92,7 +90,6 @@ def test_generate_combatant():
 
 def test_generate_combatants():
     # GIVEN
-    global cursor
     if cursor is not None:
         mock_db_for_test([
             [get_mock_pokemon(1)],
@@ -129,7 +126,6 @@ def load_game():
 
 def test_get_last_game():
     # GIVEN
-    global cursor
     if cursor is not None:
         mock_db_for_test([
             [get_mock_pokemon(1)],
@@ -192,7 +188,6 @@ def test_save_current_stat(setup_combatants):
     # GIVEN
     pokemon_a, x = setup_combatants
 
-    global cursor
     if cursor is not None:
         mock_db_for_test([
             [{"combatant_id":pokemon_a.id,"attack":0, "base_stat":0, "stage":3, "stat":"ATTACK"}],
@@ -293,7 +288,6 @@ def test_use_move_on_pokemon_not_status(setup_combatants):
 
 
 def mock_db_for_test(fetchall_responses: list, fetchone_responses):
-    global cursor
     class Counter:
         i = 0
         j = 0
@@ -323,10 +317,10 @@ def mock_db_for_test(fetchall_responses: list, fetchone_responses):
     cursor.fetchone.side_effect = fetchone_side_effect
 
 
-def get_mock_pokemon(id: int):
+def get_mock_pokemon(pokemon_id: int):
     return {
-        "id": id,
-        "name": 'Charmander' if id == 1 else 'Squirtle',
+        "id": pokemon_id,
+        "name": 'Charmander' if pokemon_id == 1 else 'Squirtle',
         "type1": "FIRE",
         "type2": None,
         "hp_min": 50,
@@ -343,12 +337,12 @@ def get_mock_pokemon(id: int):
         "speed_max": 20
     }
 
-def get_mock_move_response(id: int, pokemon_id = 0):
+def get_mock_move_response(move_id: int, pokemon_id = 0):
     return {
         "pokemon_id": pokemon_id,
-        "id": id,
-        "move_id": id,
-        "name": 'Status Move' if id == 0 else 'Scratch' if id == 1 else 'Tackle',
+        "id": move_id,
+        "move_id": move_id,
+        "name": 'Status Move' if move_id == 0 else 'Scratch' if move_id == 1 else 'Tackle',
         "move_type": "NORMAL",
         "category": "STATUS",
         "move_power": None,
@@ -360,11 +354,11 @@ def get_mock_move_response(id: int, pokemon_id = 0):
         "can_crit": False
     }
 
-def get_mock_combatant(id: int, is_player):
+def get_mock_combatant(combatant_id: int, is_player):
     return {
-        "id": id,
+        "id": combatant_id,
         "pokemon": {
-            "id": id,
+            "id": combatant_id,
             "name": 'Charmander',
             "type1": Type.FIRE,
             "type2": None
@@ -372,7 +366,7 @@ def get_mock_combatant(id: int, is_player):
         "hp_max": 50,
         "hp_current": 50,
         "is_player": is_player,
-        "moves": [get_mock_move_response(id)],
+        "moves": [get_mock_move_response(combatant_id)],
         "stats": {
         }
     }
