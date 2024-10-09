@@ -1,3 +1,6 @@
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/401b79febe4b4a99b31d4fc7d13b244e)](https://app.codacy.com?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/401b79febe4b4a99b31d4fc7d13b244e)](https://app.codacy.com?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
+
 Running Redis
 * In command terminal, navigate to directory of redis install
   - `E:\Program Files\Redis`
