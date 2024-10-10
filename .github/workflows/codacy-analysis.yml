@@ -23,7 +23,7 @@ jobs:
           pip install codacy-coverage
       - name: Run tests and generate coverage
         run: |
-          coverage run -m pytest
+          coverage run --branch -m pytest
           coverage xml
       - name: Upload coverage to Codacy
         run: |
