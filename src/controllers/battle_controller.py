@@ -1,7 +1,9 @@
 import logging
+import os
 
 from confluent_kafka import Producer
 from flask import Flask, jsonify, request
+from flask.cli import load_dotenv
 from flask_cors import CORS
 import json
 
@@ -10,9 +12,11 @@ from src.utils.constants import kafka_topic
 app = Flask(__name__)
 CORS(app)
 
+load_dotenv() # load environment variables
+
 # Configure the Kafka producer
 conf = {
-    'bootstrap.servers': 'localhost:9092',  # Adjust based on your Kafka setup
+    'bootstrap.servers': os.getenv('KAFKA_HOST'),  # Adjust based on your Kafka setup
 }
 producer = Producer(**conf)
 

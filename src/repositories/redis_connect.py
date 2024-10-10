@@ -1,11 +1,18 @@
 import logging
+import os
 
 import redis
 import json
 
+from flask.cli import load_dotenv
+
+from src.utils.utils import is_local_testing
+
+load_dotenv() # load environment variables
+
 # Redis connection parameters
 redis_config = {
-    'host': 'localhost',
+    'host': os.getenv('REDIS_HOST'),
     'port': 6379,
     'db': 0
 }
@@ -23,6 +30,10 @@ def manage_data_in_redis(redis_func):
     :return:
     """
     try:
+        if not is_local_testing():
+            # TODO: Redis on GitHub
+            return
+
         # Connect to Redis
         r = redis.Redis(**redis_config)
         r.ping()

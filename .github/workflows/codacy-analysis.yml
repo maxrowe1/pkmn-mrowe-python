@@ -1,0 +1,32 @@
+name: Codacy Analysis CLI
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.x'
+      - name: Set Environment Variables
+        run: |
+          echo "KAFKA_HOST=??"
+          echo "DB_HOST=??"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -U pytest
+          pip install coverage
+          pip install codacy-coverage
+      - name: Run tests and generate coverage
+        run: |
+          coverage run --branch -m pytest
+          coverage xml
+      - name: Upload coverage to Codacy
+        run: |
+          python-codacy-coverage -r coverage.xml
+        env:
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
